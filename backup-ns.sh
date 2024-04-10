@@ -337,7 +337,9 @@ backup_postgres() {
         return
     fi
     
-    # trigger postgres backup inside target container of target pod 
+    # trigger postgres backup inside target container of target pod
+    # TODO: ensure that pg_dump is no longer running if we kill the script (pod) that executes kubectl exec
+    
     kubectl -n ${ns} exec -i --tty=false ${resource} -c ${container} -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', postgresql dump/gzip on disk failed!"
         # inject default PGPASSWORD into current env (before cmds are visible in logs)
         export PGPASSWORD=${pg_pass}
@@ -526,10 +528,19 @@ snapshot_disk() {
     # wait for the snapshot to be ready...
     if [ "${wait_until_ready}" == "true" ]; then
         log "waiting for ns='${ns}' 'VolumeSnapshot/${vs_name}' to be ready (timeout='${wait_until_ready_timeout}')..."
-        kubectl -n ${ns} wait --for=jsonpath='{.status.readyToUse}'=true --timeout=${wait_until_ready_timeout} volumesnapshot/${vs_name}
+        
+        # give kubectl some time to actually have a status field to wait for
+        # https://github.com/kubernetes/kubectl/issues/1204
+        # https://github.com/kubernetes/kubernetes/pull/109525
+        sleep 5
+        
+        # We ignore the exit code here, as we want to continue with the script even if the wait fails.
+        kubectl -n ${ns} wait --for=jsonpath='{.status.readyToUse}'=true --timeout=${wait_until_ready_timeout} volumesnapshot/${vs_name} || true
     fi
 
     kubectl -n ${ns} get volumesnapshot/${vs_name}
+
+    # TODO: supply additional checks to ensure the snapshot is actually ready and useable
 
     # TODO: we should also annotate the created VSC - but not within this script (RBAC, only require access to VS)
     # instead move that to the retention worker, which must operate on VSCs anyways.
