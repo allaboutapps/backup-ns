@@ -648,9 +648,50 @@ VS_LABELS=$(
 cat <<EOF
 labels:
     backup-ns.sh/type: "${BAK_LABEL_VS_TYPE}"
-    backup-ns.sh/pod: "${BAK_LABEL_VS_POD}"
 EOF
 )
+
+# dyn set backup-ns.sh/pod lbl
+if [ "${BAK_LABEL_VS_POD}" != "" ]; then
+    VS_LABELS="${VS_LABELS}
+    backup-ns.sh/pod: \"${BAK_LABEL_VS_POD}\""
+fi
+
+# Retention related labeling. We directly flag the first hourly, daily, weekly, monthly snapshot.
+# A (separate) retention worker can then use these labels to determine if a cleanup of this snapshot should happen.
+#
+# The following labels are used:
+#    backup-ns.sh/hourly: "$(date +"%Y-%m-%d-%H00")" # e.g. "2024-04-0900"
+#    backup-ns.sh/daily: "$(date +"%Y-%m-%d")" # e.g. "2024-04-11"
+#    backup-ns.sh/weekly: "$(date +"%Y-w%U")" # e.g. "2024-w15"
+#    backup-ns.sh/monthly: "$(date +"%Y-%m")" # e.g. "2024-04"
+#
+# We simply try to kubectl get a prefixing snapshot with the same label and if it does not exist, we set the label on the new snapshot.
+# This way we can ensure that the first snapshot of a day, week, month is always flagged.
+
+HOURLY_LABEL=$(date +"%Y-%m-%d-%H00")
+if [ "$(kubectl -n ${BAK_NAMESPACE} get volumesnapshot -l backup-ns.sh/hourly=${HOURLY_LABEL} -o name)" == "" ]; then
+    VS_LABELS="${VS_LABELS}
+    backup-ns.sh/hourly: \"${HOURLY_LABEL}\""
+fi
+
+DAILY_LABEL=$(date +"%Y-%m-%d")
+if [ "$(kubectl -n ${BAK_NAMESPACE} get volumesnapshot -l backup-ns.sh/daily=${DAILY_LABEL} -o name)" == "" ]; then
+    VS_LABELS="${VS_LABELS}
+    backup-ns.sh/daily: \"${DAILY_LABEL}\""
+fi
+
+WEEKLY_LABEL=$(date +"%Y-w%U")
+if [ "$(kubectl -n ${BAK_NAMESPACE} get volumesnapshot -l backup-ns.sh/weekly=${WEEKLY_LABEL} -o name)" == "" ]; then
+    VS_LABELS="${VS_LABELS}
+    backup-ns.sh/weekly: \"${WEEKLY_LABEL}\""
+fi
+
+MONTHLY_LABEL=$(date +"%Y-%m")
+if [ "$(kubectl -n ${BAK_NAMESPACE} get volumesnapshot -l backup-ns.sh/monthly=${MONTHLY_LABEL} -o name)" == "" ]; then
+    VS_LABELS="${VS_LABELS}
+    backup-ns.sh/monthly: \"${MONTHLY_LABEL}\""
+fi
 
 VS_ANNOTATIONS=$(
 cat <<EOF
