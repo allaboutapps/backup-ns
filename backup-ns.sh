@@ -36,16 +36,19 @@ BAK_NAMESPACE="${BAK_NAMESPACE:=$((kubectl config view --minify | grep namespace
 BAK_PVC_NAME="${BAK_PVC_NAME:=$(echo "data")}"
 
 # BAK_START_DATE: the start date of this script run
-BAK_START_DATE=$(date -u +"%Y-%m-%d-%H%M%S")
+BAK_START_DATE=$(date +"%Y-%m-%d-%H%M%S")
 
 # BAK_VS_RAND: a random string to make the volume snapshot name unique (apart from the timestamp), fallback to nanoseconds
-BAK_VS_RAND="${BAK_VS_RAND:=$((shuf -er -n6 {a..z} {0..9} | tr -d '\n') || date -u +"%6N")}"
+BAK_VS_RAND="${BAK_VS_RAND:=$((shuf -er -n6 {a..z} {0..9} | tr -d '\n') || date +"%6N")}"
 
-# BAK_VS_TYPE: "type" label value of volume snapshot (e.g. "adhoc" or custom backups, "scheduled" for recurring, etc.), also used for suffix of the volume snapshot name
-BAK_VS_TYPE="${BAK_VS_TYPE:=$(echo "adhoc")}"
+# BAK_LABEL_VS_TYPE: "type" label value of volume snapshot (e.g. "adhoc" or custom backups, "scheduled" for recurring, etc.)
+BAK_LABEL_VS_TYPE="${BAK_LABEL_VS_TYPE:=$(echo "adhoc")}"
+
+# BAK_LABEL_VS_POD: "pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)
+BAK_LABEL_VS_POD="${BAK_LABEL_VS_POD:=$(echo "")}"
 
 # BAK_VS_NAME: the name of the volume snapshot
-BAK_VS_NAME="${BAK_VS_NAME:=$(echo "${BAK_PVC_NAME}-${BAK_START_DATE}-${BAK_VS_RAND}-${BAK_VS_TYPE}")}"
+BAK_VS_NAME="${BAK_VS_NAME:=$(echo "${BAK_PVC_NAME}-${BAK_START_DATE}-${BAK_VS_RAND}")}"
 
 # BAK_VS_CLASS_NAME: the name of the volume snapshot class to use
 BAK_VS_CLASS_NAME="${BAK_VS_CLASS_NAME:=$(echo "a3cloud-csi-gce-pd")}"
@@ -339,7 +342,7 @@ backup_postgres() {
     
     # trigger postgres backup inside target container of target pod
     # TODO: ensure that pg_dump is no longer running if we kill the script (pod) that executes kubectl exec
-    
+
     kubectl -n ${ns} exec -i --tty=false ${resource} -c ${container} -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', postgresql dump/gzip on disk failed!"
         # inject default PGPASSWORD into current env (before cmds are visible in logs)
         export PGPASSWORD=${pg_pass}
@@ -469,29 +472,27 @@ backup_mysql() {
 EOF
 }
 
-snapshot_disk_template() {
+volume_snapshot_template() {
     local ns=$1
     local pvc_name=$2
     local vs_name=$3
     local vs_class_name=$4
-    local vs_type=$5
+    local labels=$5
+    local annotations=$6
 
     # BAK_* env vars are serialized into the annotation for later reference
     cat <<EOF
 apiVersion: snapshot.storage.k8s.io/v1
 kind: VolumeSnapshot
 metadata:
-    name: ${vs_name}
-    namespace: ${ns}
-    labels:
-        backup-ns.sh/type: ${vs_type}
-    annotations:
-        backup-ns.sh/env-config: |-
-$(serialize_bak_env_config | sed 's/^/            /')
+    name: "${vs_name}"
+    namespace: "${ns}"
+$(echo "${labels}" | sed 's/^/    /')
+$(echo "${annotations}" | sed 's/^/    /')
 spec:
-    volumeSnapshotClassName: ${vs_class_name}
+    volumeSnapshotClassName: "${vs_class_name}"
     source:
-        persistentVolumeClaimName: ${pvc_name}
+        persistentVolumeClaimName: "${pvc_name}"
 EOF
 }
 
@@ -499,23 +500,12 @@ snapshot_disk() {
     local ns=$1
     local pvc_name=$2
     local vs_name=$3
-    local vs_class_name=$4
-    local vs_type=$5
-    local wait_until_ready=$6
-    local wait_until_ready_timeout=$7
-    local dry_run=$8
-    
-    local k8s_snapshot=$(snapshot_disk_template \
-        ${ns} \
-        ${pvc_name} \
-        ${vs_name} \
-        ${vs_class_name} \
-        ${vs_type} \
-    )
+    local vs_object=$4 # the serialized k8s object
+    local wait_until_ready=$5
+    local wait_until_ready_timeout=$6
+    local dry_run=$7
 
-    log "creating ns='${ns}' pvc_name='${pvc_name}' 'VolumeSnapshot/${vs_name}' (vs_class_name='${vs_class_name}' vs_type='${vs_type}' dry_run='${dry_run}')..."
-
-    verbose "${k8s_snapshot}"
+    log "creating ns='${ns}' pvc_name='${pvc_name}' 'VolumeSnapshot/${vs_name}' (dry_run='${dry_run}')..."
 
     # dry-run mode? bail out early!
     if [ "${dry_run}" == "true" ]; then
@@ -523,7 +513,7 @@ snapshot_disk() {
         return
     fi
 
-    echo "${k8s_snapshot}" | kubectl -n ${ns} apply -f -
+    echo "${vs_object}" | kubectl -n ${ns} apply -f -
 
     # wait for the snapshot to be ready...
     if [ "${wait_until_ready}" == "true" ]; then
@@ -653,13 +643,41 @@ if [ "$BAK_DB_MYSQL" == "true" ]; then
 
 fi
 
+# template the k8s volume snapshot...
+VS_LABELS=$(
+cat <<EOF
+labels:
+    backup-ns.sh/type: "${BAK_LABEL_VS_TYPE}"
+    backup-ns.sh/pod: "${BAK_LABEL_VS_POD}"
+EOF
+)
+
+VS_ANNOTATIONS=$(
+cat <<EOF
+annotations:
+    backup-ns.sh/env-config: |-
+$(serialize_bak_env_config | sed 's/^/        /')
+EOF
+)
+
+VS_OBJECT=$(volume_snapshot_template \
+    ${BAK_NAMESPACE} \
+    ${BAK_PVC_NAME} \
+    ${BAK_VS_NAME} \
+    ${BAK_VS_CLASS_NAME} \
+    "${VS_LABELS}" \
+    "${VS_ANNOTATIONS}" \
+)
+
+# print the to be created object
+verbose "${VS_OBJECT}"
+
 # snapshot the disk!
 snapshot_disk \
     ${BAK_NAMESPACE} \
     ${BAK_PVC_NAME} \
     ${BAK_VS_NAME} \
-    ${BAK_VS_CLASS_NAME} \
-    ${BAK_VS_TYPE} \
+    "${VS_OBJECT}" \
     ${BAK_VS_WAIT_UNTIL_READY} \
     ${BAK_VS_WAIT_UNTIL_READY_TIMEOUT} \
     ${BAK_DRY_RUN}
