@@ -8,7 +8,7 @@ set -Eeo pipefail
 # A (separate) retention worker can then use these labels to determine if a cleanup of this snapshot should happen.
 #
 # The following labels are used:
-#    backup-ns.sh/retain: "hourly,daily,weekly,monthly"
+#    backup-ns.sh/retain: "hourly_daily_weekly_monthly"
 #    backup-ns.sh/hourly: "$(date +"%Y-%m-%d-%H00")" # e.g. "2024-04-0900"
 #    backup-ns.sh/daily: "$(date +"%Y-%m-%d")" # e.g. "2024-04-11"
 #    backup-ns.sh/weekly: "$(date +"%Y-w%U")" # e.g. "2024-w15"
@@ -28,7 +28,7 @@ label_get_retain_spec() {
     local labels=""
 
     read -r -d '' labels << EOF
-backup-ns.sh/retain: "hourly,daily,weekly,monthly"
+backup-ns.sh/retain: "hourly_daily_weekly_monthly"
 EOF
 
     if [ "$(kubectl -n ${ns} get volumesnapshot -l backup-ns.sh/hourly=${hourly_label} -o name)" == "" ]; then
