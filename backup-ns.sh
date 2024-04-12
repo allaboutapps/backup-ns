@@ -30,16 +30,16 @@ source "${SCRIPT_DIR}/bak/utils.sh"
 source "${SCRIPT_DIR}/bak/flock.sh"
 source "${SCRIPT_DIR}/bak/mysql.sh"
 source "${SCRIPT_DIR}/bak/postgres.sh"
-source "${SCRIPT_DIR}/bak/pv.sh"
+source "${SCRIPT_DIR}/bak/pvc.sh"
 
 # main
 # ------------------------------
 
 # print the parsed env config
-verbose "$(get_bak_env_config)"
+verbose "$(env_bak_config)"
 
 # check host requirements before starting to ensure we are not missing any required tools on the host
-check_host_requirements ${BAK_FLOCK}
+utils_check_host_requirements ${BAK_FLOCK}
 
 log "starting backup in namespace='${BAK_NAMESPACE}'..."
 
@@ -71,11 +71,11 @@ if [ "$BAK_FLOCK" == "true" ]; then
 fi
 
 # is the PVC available?
-ensure_pvc_available ${BAK_NAMESPACE} ${BAK_PVC_NAME}
+pvc_ensure_available ${BAK_NAMESPACE} ${BAK_PVC_NAME}
 
 # check postgresql?
 if [ "$BAK_DB_POSTGRES" == "true" ]; then
-    ensure_postgres_available \
+    postgres_ensure_available \
         ${BAK_NAMESPACE} \
         ${BAK_DB_POSTGRES_EXEC_RESOURCE} \
         ${BAK_DB_POSTGRES_EXEC_CONTAINER} \
@@ -83,7 +83,7 @@ if [ "$BAK_DB_POSTGRES" == "true" ]; then
         ${BAK_DB_POSTGRES_USER} \
         ${BAK_DB_POSTGRES_PASSWORD}
 
-    ensure_free_space \
+    pvc_ensure_free_space \
         ${BAK_NAMESPACE} \
         ${BAK_DB_POSTGRES_EXEC_RESOURCE} \
         ${BAK_DB_POSTGRES_EXEC_CONTAINER} \
@@ -93,7 +93,7 @@ fi
 
 # check mysql?
 if [ "$BAK_DB_MYSQL" == "true" ]; then
-    ensure_mysql_available \
+    mysql_ensure_available \
         ${BAK_NAMESPACE} \
         ${BAK_DB_MYSQL_EXEC_RESOURCE} \
         ${BAK_DB_MYSQL_EXEC_CONTAINER} \
@@ -102,7 +102,7 @@ if [ "$BAK_DB_MYSQL" == "true" ]; then
         ${BAK_DB_MYSQL_USER} \
         ${BAK_DB_MYSQL_PASSWORD}
 
-    ensure_free_space \
+    pvc_ensure_free_space \
         ${BAK_NAMESPACE} \
         ${BAK_DB_MYSQL_EXEC_RESOURCE} \
         ${BAK_DB_MYSQL_EXEC_CONTAINER} \
@@ -112,7 +112,7 @@ fi
 
 # backup postgresql?
 if [ "$BAK_DB_POSTGRES" == "true" ]; then
-    backup_postgres \
+    postgres_backup \
         ${BAK_NAMESPACE} \
         ${BAK_DB_POSTGRES_EXEC_RESOURCE} \
         ${BAK_DB_POSTGRES_EXEC_CONTAINER} \
@@ -125,7 +125,7 @@ fi
 
 # backup mysql?
 if [ "$BAK_DB_MYSQL" == "true" ]; then
-    backup_mysql \
+    mysql_backup \
         ${BAK_NAMESPACE} \
         ${BAK_DB_MYSQL_EXEC_RESOURCE} \
         ${BAK_DB_MYSQL_EXEC_CONTAINER} \
@@ -192,11 +192,11 @@ VS_ANNOTATIONS=$(
 cat <<EOF
 annotations:
     backup-ns.sh/env-config: |-
-$(serialize_bak_env_config | sed 's/^/        /')
+$(env_bak_config_serialize | sed 's/^/        /')
 EOF
 )
 
-VS_OBJECT=$(volume_snapshot_template \
+VS_OBJECT=$(pvc_volume_snapshot_template \
     ${BAK_NAMESPACE} \
     ${BAK_PVC_NAME} \
     ${BAK_VS_NAME} \
@@ -209,7 +209,7 @@ VS_OBJECT=$(volume_snapshot_template \
 verbose "${VS_OBJECT}"
 
 # snapshot the disk!
-snapshot_disk \
+pvc_snapshot \
     ${BAK_NAMESPACE} \
     ${BAK_PVC_NAME} \
     ${BAK_VS_NAME} \

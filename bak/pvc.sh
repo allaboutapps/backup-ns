@@ -4,7 +4,7 @@ set -Eeo pipefail
 # functions
 # ------------------------------
 
-ensure_pvc_available() {
+pvc_ensure_available() {
     local ns=$1
     local pvc=$2
 
@@ -16,7 +16,7 @@ ensure_pvc_available() {
 }
 
 # Depends on awk, sed and df.
-ensure_free_space() {
+pvc_ensure_free_space() {
     local ns=$1
     local resource=$2
     local container=$3
@@ -45,7 +45,7 @@ EOF
 }
 
 
-volume_snapshot_template() {
+pvc_volume_snapshot_template() {
     local ns=$1
     local pvc_name=$2
     local vs_name=$3
@@ -69,7 +69,7 @@ spec:
 EOF
 }
 
-snapshot_disk() {
+pvc_snapshot() {
     local ns=$1
     local pvc_name=$2
     local vs_name=$3

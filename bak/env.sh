@@ -132,14 +132,14 @@ BAK_COLORS_ENABLED="${BAK_COLORS_ENABLED:=$((which tput > /dev/null 2>&1 && [[ $
 # functions
 # ------------------------------
 
-get_bak_env_config() {
+env_bak_config() {
     # log set globals by prefix
     # automatically strip out *_PASSWORD vars for security reasons 
     ( set -o posix ; set ) | grep "BAK_" | grep -v "_PASSWORD"
 }
 
-serialize_bak_env_config() {
+env_bak_config_serialize() {
     # serialize truthy BAK_DB_* vars
     # this is used to store the env config as vs annotation
-    get_bak_env_config | grep "BAK_DB_" | grep -v "=false"
+    env_bak_config | grep "BAK_DB_" | grep -v "=false"
 }

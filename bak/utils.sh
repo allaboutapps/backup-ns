@@ -34,7 +34,7 @@ fatal() {
     exit 1
 }
 
-check_host_requirements() {
+utils_check_host_requirements() {
     local flock_required=$1
 
     # check required cli tooling is available on the system that executes this script

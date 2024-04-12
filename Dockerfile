@@ -7,6 +7,6 @@ COPY --chmod=0777 backup-ns.sh /backup-ns.sh
 COPY bak /bak
 
 # sanity check all the required cli tools are installed in the image
-RUN bash -c "source /bak/utils.sh && check_host_requirements true"
+RUN bash -c "source /bak/utils.sh && utils_check_host_requirements true"
 
 ENTRYPOINT ["/backup-ns.sh"]

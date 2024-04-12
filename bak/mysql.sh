@@ -4,7 +4,7 @@ set -Eeo pipefail
 # functions
 # ------------------------------
 
-ensure_mysql_available() {
+mysql_ensure_available() {
     local ns=$1
     local resource=$2
     local container=$3
@@ -43,7 +43,7 @@ ensure_mysql_available() {
 EOF
 }
 
-backup_mysql() {
+mysql_backup() {
     local ns=$1
     local resource=$2
     local container=$3

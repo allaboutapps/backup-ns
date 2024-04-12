@@ -4,7 +4,7 @@ set -Eeo pipefail
 # functions
 # ------------------------------
 
-ensure_postgres_available() {
+postgres_ensure_available() {
     local ns=$1
     local resource=$2
     local container=$3
@@ -36,7 +36,7 @@ ensure_postgres_available() {
 EOF
 }
 
-backup_postgres() {
+postgres_backup() {
     local ns=$1
     local resource=$2
     local container=$3
