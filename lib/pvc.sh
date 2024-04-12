@@ -60,8 +60,10 @@ kind: VolumeSnapshot
 metadata:
     name: "${vs_name}"
     namespace: "${ns}"
-$(echo "${labels}" | sed 's/^/    /')
-$(echo "${annotations}" | sed 's/^/    /')
+    labels:
+$(echo "${labels}" | sed 's/^/        /')
+    annotations:
+$(echo "${annotations}" | sed 's/^/        /')
 spec:
     volumeSnapshotClassName: "${vs_class_name}"
     source:
@@ -82,7 +84,11 @@ pvc_snapshot() {
 
     # dry-run mode? bail out early!
     if [ "${dry_run}" == "true" ]; then
-        warn "skipping - dry-run mode is active!"
+
+        # at least validate the vs object
+        echo "${vs_object}" | kubectl -n ${ns} apply --validate=true --dry-run=client -f -
+
+        warn "skipping - dry-run mode is active!"´
         return
     fi
 

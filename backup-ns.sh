@@ -142,29 +142,27 @@ fi
 # template the k8s volume snapshot...
 VS_LABELS=$(
 cat <<EOF
-labels:
-    backup-ns.sh/type: "${BAK_LABEL_VS_TYPE}"
+backup-ns.sh/type: "${BAK_LABEL_VS_TYPE}"
 EOF
 )
 
 # dynamically set backup-ns.sh/pod label
 if [ "${BAK_LABEL_VS_POD}" != "" ]; then
     VS_LABELS="${VS_LABELS}
-    backup-ns.sh/pod: \"${BAK_LABEL_VS_POD}\""
+backup-ns.sh/pod: \"${BAK_LABEL_VS_POD}\""
 fi
 
 # dynamically set retain labels
 VS_RETAIN_LABELS=$(label_get_retain_spec ${BAK_NAMESPACE})
 if [ "${VS_RETAIN_LABELS}" != "" ]; then
     VS_LABELS="${VS_LABELS}
-$(echo "${VS_RETAIN_LABELS}" | sed 's/^/    /')"
+$(echo "${VS_RETAIN_LABELS}")"
 fi
 
 VS_ANNOTATIONS=$(
 cat <<EOF
-annotations:
-    backup-ns.sh/env-config: |-
-$(env_bak_config_serialize | sed 's/^/        /')
+backup-ns.sh/env-config: |-
+$(env_bak_config_serialize | sed 's/^/    /')
 EOF
 )
 
