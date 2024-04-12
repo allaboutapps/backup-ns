@@ -25,12 +25,12 @@ set -Eeo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 # echo "SCRIPT_DIR: ${SCRIPT_DIR}"
 
-source "${SCRIPT_DIR}/bak/env.sh"
-source "${SCRIPT_DIR}/bak/utils.sh"
-source "${SCRIPT_DIR}/bak/flock.sh"
-source "${SCRIPT_DIR}/bak/mysql.sh"
-source "${SCRIPT_DIR}/bak/postgres.sh"
-source "${SCRIPT_DIR}/bak/pvc.sh"
+source "${SCRIPT_DIR}/lib/env.sh"
+source "${SCRIPT_DIR}/lib/utils.sh"
+source "${SCRIPT_DIR}/lib/flock.sh"
+source "${SCRIPT_DIR}/lib/mysql.sh"
+source "${SCRIPT_DIR}/lib/postgres.sh"
+source "${SCRIPT_DIR}/lib/pvc.sh"
 
 # main
 # ------------------------------
