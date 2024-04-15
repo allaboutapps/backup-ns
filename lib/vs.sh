@@ -13,16 +13,20 @@ set -Eeo pipefail
 #
 # The following labels are used:
 #    backup-ns.sh/retain: "hourly_daily_weekly_monthly"
-#    backup-ns.sh/hourly: "$(date +"%Y-%m-%d-%H00")" # e.g. "2024-04-0900"
-#    backup-ns.sh/daily: "$(date +"%Y-%m-%d")" # e.g. "2024-04-11"
-#    backup-ns.sh/weekly: "$(date +"%Y-w%U")" # e.g. "2024-w15"
-#    backup-ns.sh/monthly: "$(date +"%Y-%m")" # e.g. "2024-04"
+#    backup-ns.sh/hourly: e.g. "2024-04-0900"
+#    backup-ns.sh/daily: e.g. "2024-04-11"
+#    backup-ns.sh/weekly: e.g. "2024-w15"
+#    backup-ns.sh/monthly: e.g. "2024-04"
+# 
+# All dates use the **LOCAL TIMEZONE** of the machine executing the script!
 #
 # We simply try to kubectl get a prefixing snapshot with the same label and if it does not exist, we set the label on the new snapshot.
 # This way we can ensure that the first snapshot of a day, week, month is always flagged.
 vs_retain_labels() {
     local ns=$1
 
+    # Note that even tough using printf for formatting dates might be a best practise (https://stackoverflow.com/questions/1401482/yyyy-mm-dd-format-date-in-shell-script)
+    # we are still using date, as it is more portable (osx has no printf with date formatting support)
     local hourly_label=$(date +"%Y-%m-%d-%H00")
     local daily_label=$(date +"%Y-%m-%d")
     local weekly_label=$(date +"%Y-w%U")

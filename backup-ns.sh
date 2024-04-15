@@ -71,6 +71,10 @@ if [ "$BAK_FLOCK" == "true" ]; then
     flock_lock ${LOCK_FILE} ${BAK_FLOCK_TIMEOUT_SEC} ${BAK_DRY_RUN}
 fi
 
+# set volume snapshot name by evaluating the template (after we acquired the lock)
+VS_NAME=$(eval "echo ${BAK_VS_NAME_TEMPLATE}")
+log "set VS_NAME='${VS_NAME}'"
+
 # is the PVC available?
 pvc_ensure_available ${BAK_NAMESPACE} ${BAK_PVC_NAME}
 
@@ -171,7 +175,7 @@ EOF
 VS_OBJECT=$(vs_template \
     ${BAK_NAMESPACE} \
     ${BAK_PVC_NAME} \
-    ${BAK_VS_NAME} \
+    ${VS_NAME} \
     ${BAK_VS_CLASS_NAME} \
     "${VS_LABELS}" \
     "${VS_ANNOTATIONS}" \
@@ -184,7 +188,7 @@ verbose "${VS_OBJECT}"
 vs_create \
     ${BAK_NAMESPACE} \
     ${BAK_PVC_NAME} \
-    ${BAK_VS_NAME} \
+    ${VS_NAME} \
     "${VS_OBJECT}" \
     ${BAK_VS_WAIT_UNTIL_READY} \
     ${BAK_VS_WAIT_UNTIL_READY_TIMEOUT} \

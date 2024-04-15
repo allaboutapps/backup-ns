@@ -18,9 +18,6 @@ BAK_NAMESPACE="${BAK_NAMESPACE:=$((kubectl config view --minify | grep namespace
 # BAK_PVC_NAME: the name of the PVC to backup
 BAK_PVC_NAME="${BAK_PVC_NAME:=$(echo "data")}"
 
-# BAK_START_DATE: the start date of this script run
-BAK_START_DATE=$(date +"%Y-%m-%d-%H%M%S")
-
 # BAK_VS_RAND: a random string to make the volume snapshot name unique (apart from the timestamp), fallback to nanoseconds
 BAK_VS_RAND="${BAK_VS_RAND:=$((shuf -er -n6 {a..z} {0..9} | tr -d '\n') || date +"%6N")}"
 
@@ -30,8 +27,8 @@ BAK_LABEL_VS_TYPE="${BAK_LABEL_VS_TYPE:=$(echo "adhoc")}"
 # BAK_LABEL_VS_POD: "pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)
 BAK_LABEL_VS_POD="${BAK_LABEL_VS_POD:=$(echo "")}"
 
-# BAK_VS_NAME: the name of the volume snapshot
-BAK_VS_NAME="${BAK_VS_NAME:=$(echo "${BAK_PVC_NAME}-${BAK_START_DATE}-${BAK_VS_RAND}")}"
+# BAK_VS_NAME_TEMPLATE: the name of the volume snapshot can be templated (will be evaluated after having the flock lock, if enabled)
+BAK_VS_NAME_TEMPLATE="${BAK_VS_NAME_TEMPLATE:=$(echo "\${BAK_PVC_NAME}-\$(date +\"%Y-%m-%d-%H%M%S\")-\${BAK_VS_RAND}")}"
 
 # BAK_VS_CLASS_NAME: the name of the volume snapshot class to use
 BAK_VS_CLASS_NAME="${BAK_VS_CLASS_NAME:=$(echo "a3cloud-csi-gce-pd")}"
