@@ -1,23 +1,27 @@
 #!/bin/bash
 set -Eeo pipefail
 
-# This script manages application-aware backups of a single k8s namespace.
+# This script creates application-aware snapshots of a single k8s namespace.
+# It writes database dumps to the disk before actually taking the snapshot and sets labels to control retention (in a separate cleanup job).
 # Backups are volume snapshot based, thus must use the underlying k8s CSI driver to finally create the snapshot of a disk.
-
+# 
 # The fine part of this script is: You can execute this script directly from your local machine 
 # and also from a k8s cronjob or trigger a k8s job via a CI/CD pipeline.
 # The only requirement is having kubectl access to the target namespace via a serviceaccount.
-
+# 
 # The target namespace is determined by the current kubectl context but may be overridden by setting the BAK_NAMESPACE env var.
-
+# 
 # You may want to test how your variables are evaluated by running the script with the following commands in dry-run mode:
 # BAK_DRY_RUN=true ./backup-ns.sh
 # BAK_DRY_RUN=true BAK_DB_POSTGRES=true ./backup-ns.sh
 # BAK_DRY_RUN=true BAK_DB_MYSQL=true ./backup-ns.sh
 # BAK_DRY_RUN=true BAK_DB_SKIP=true ./backup-ns.sh
-
+# 
 # To test flock, you might want to limit concurrency to 1 and simply specify /tmp as the lock dir:
 # BAK_DRY_RUN=true BAK_FLOCK=true BAK_FLOCK_COUNT=1 BAK_FLOCK_DIR=/tmp BAK_DB_SKIP=true ./backup-ns.sh
+#
+# This script typically expects to be run in a local timezone environment (e.g. CEST/CEST) (so retention-related labels make sense).
+# You can accomplish that by e.g. mounting /usr/share/zoneinfo/Europe/Vienna -> /etc/localtime in container environments or properly setting the TZ env var.
 
 # imports
 # ------------------------------
@@ -177,7 +181,7 @@ EOF
         "${vs_annotations}" \
     )
 
-    # print the to be created object
+    # print the to-be-created object
     verbose "${vs_object}"
 
     # snapshot the disk!
