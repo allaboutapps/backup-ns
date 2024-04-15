@@ -22,7 +22,7 @@ set -Eeo pipefail
 #
 # We simply try to kubectl get a prefixing snapshot with the same label and if it does not exist, we set the label on the new snapshot.
 # This way we can ensure that the first snapshot of a day, week, month is always flagged.
-vs_retain_labels() {
+vs_get_retain_labels() {
     local ns=$1
 
     # Note that even tough using printf for formatting dates might be a best practise (https://stackoverflow.com/questions/1401482/yyyy-mm-dd-format-date-in-shell-script)
@@ -78,7 +78,6 @@ vs_template() {
     local labels=$5
     local annotations=$6
 
-    # BAK_* env vars are serialized into the annotation for later reference
     cat <<EOF
 apiVersion: snapshot.storage.k8s.io/v1
 kind: VolumeSnapshot
