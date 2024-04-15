@@ -23,7 +23,7 @@ RUN set -x; ARCH="$(uname -m)" \
 WORKDIR /app
 COPY . /app/
 
-RUN make
+RUN make info && make lint
 
 # which kubectl version to install (should be in sync with you kubernetes version)
 # https://hub.docker.com/r/bitnami/kubectl/tags

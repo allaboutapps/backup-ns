@@ -3,18 +3,20 @@ all: format lint
 
 .PHONY: info
 info:
-	shellcheck --version
-	shellharden --version
+	@shellcheck --version
+	@shellharden --version
 
 .PHONY: format
 format:
-	shellharden --replace *.sh
-	shellharden --replace **/*.sh
+	@shellharden --replace *.sh
+	@shellharden --replace **/*.sh
 
 .PHONY: lint
 lint:
-	shellcheck -x *.sh
-	shellcheck -x **/*.sh
+	@shellharden --check *.sh
+	@shellharden --check **/*.sh
+	@shellcheck -x *.sh
+	@shellcheck -x **/*.sh
 
 # normal POSIX bash shell mode
 SHELL = /bin/bash
