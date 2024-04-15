@@ -1,6 +1,11 @@
 #!/bin/bash
 set -Eeo pipefail
 
+# File based locking mechanism to control backup concurrency when multiple backups (from different namespaces) are running in parallel
+# The flock is typically executed on the machine (= k8s node) where main script is executed.
+# https://man7.org/linux/man-pages/man1/flock.1.html
+# ------------------------------
+
 # functions
 # ------------------------------
 

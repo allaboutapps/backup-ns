@@ -31,7 +31,7 @@ source "${SCRIPT_DIR}/lib/flock.sh"
 source "${SCRIPT_DIR}/lib/mysql.sh"
 source "${SCRIPT_DIR}/lib/postgres.sh"
 source "${SCRIPT_DIR}/lib/pvc.sh"
-source "${SCRIPT_DIR}/lib/label.sh"
+source "${SCRIPT_DIR}/lib/vs.sh"
 
 # main
 # ------------------------------
@@ -139,7 +139,7 @@ if [ "$BAK_DB_MYSQL" == "true" ]; then
 
 fi
 
-# template the k8s volume snapshot...
+# setup k8s volume snapshot labels
 VS_LABELS=$(
 cat <<EOF
 backup-ns.sh/type: "${BAK_LABEL_VS_TYPE}"
@@ -153,12 +153,13 @@ backup-ns.sh/pod: \"${BAK_LABEL_VS_POD}\""
 fi
 
 # dynamically set retain labels
-VS_RETAIN_LABELS=$(label_get_retain_spec ${BAK_NAMESPACE})
+VS_RETAIN_LABELS=$(vs_retain_labels ${BAK_NAMESPACE})
 if [ "${VS_RETAIN_LABELS}" != "" ]; then
     VS_LABELS="${VS_LABELS}
 $(echo "${VS_RETAIN_LABELS}")"
 fi
 
+# setup k8s volume snapshot annotations
 VS_ANNOTATIONS=$(
 cat <<EOF
 backup-ns.sh/env-config: |-
@@ -166,7 +167,8 @@ $(env_bak_config_serialize | sed 's/^/    /')
 EOF
 )
 
-VS_OBJECT=$(pvc_volume_snapshot_template \
+# template the k8s volume snapshot object
+VS_OBJECT=$(vs_template \
     ${BAK_NAMESPACE} \
     ${BAK_PVC_NAME} \
     ${BAK_VS_NAME} \
@@ -179,7 +181,7 @@ VS_OBJECT=$(pvc_volume_snapshot_template \
 verbose "${VS_OBJECT}"
 
 # snapshot the disk!
-pvc_snapshot \
+vs_create \
     ${BAK_NAMESPACE} \
     ${BAK_PVC_NAME} \
     ${BAK_VS_NAME} \

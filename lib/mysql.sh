@@ -1,6 +1,9 @@
 #!/bin/bash
 set -Eeo pipefail
 
+# Application-aware volume snapshot for mysql databases: dump to disk
+# ------------------------------
+
 # functions
 # ------------------------------
 

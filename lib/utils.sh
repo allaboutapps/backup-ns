@@ -1,7 +1,7 @@
 #!/bin/bash
 set -Eeo pipefail
 
-# env globals and defaults
+# Utility functions
 # ------------------------------
 
 COLOR_RED=$([ "$BAK_COLORS_ENABLED" == "true" ] && echo "\033[0;31m" || echo "")

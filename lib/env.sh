@@ -2,6 +2,8 @@
 set -Eeo pipefail
 
 # env globals and defaults
+# All env vars that are bound by the **main script** have to be defined here.
+# Lib scripts **do not directly access these vars**, instead they are passed as arguments to the functions by th main script.
 # ------------------------------
 
 # BAK_DRY_RUN: if true, no actual dump/backup is performed, just a dry run to check if everything is in place (still exec into the target container)
