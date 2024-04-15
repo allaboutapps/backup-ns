@@ -19,13 +19,13 @@ mysql_ensure_available() {
     log "check ns='${ns}' resource='${resource}' is available..."
 
     # print resource
-    kubectl -n ${ns} get ${resource} -o wide \
+    kubectl -n "$ns" get "$resource" -o wide \
         || fatal "resource='${resource}' not found."
 
     log "check exec /bin/bash into ns='${ns}' resource='${resource}' container='${container}' possible, tooling and mysql_host='${mysql_host}' mysql_db='${mysql_db}' is available for mysql_user='${mysql_user}'..."
 
     # Do not use "which" in clis, unsupported in mysql:8.x images -> command -v is supported
-    kubectl -n ${ns} exec -i --tty=false ${resource} -c ${container} -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', mysql prerequisites not met!"
+    kubectl -n "$ns" exec -i --tty=false "$resource" -c "$container" -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', mysql prerequisites not met!"
         # inject default MYSQL_PWD into current env (before cmds are visible in logs)
         export MYSQL_PWD=${mysql_pass}
 
@@ -57,18 +57,19 @@ mysql_backup() {
     local dump_file=$8
     local dry_run=$9
 
-    local dump_dir=$(dirname $dump_file)
+    local dump_dir
+    dump_dir=$(dirname "$dump_file")
 
     log "creating dump inside ns='${ns}' resource='${resource}' container='${container}' mysql_host='${mysql_host}' mysql_db='${mysql_db}' mysql_user='${mysql_user}' dumpfile='${dump_file}' dry_run='${dry_run}'..."
     
     # dry-run mode? bail out early!
-    if [ "${dry_run}" == "true" ]; then
+    if [ "$dry_run" == "true" ]; then
         warn "skipping - dry-run mode is active!"
         return
     fi
 
     # trigger mysql backup inside target container of target pod 
-    kubectl -n ${ns} exec -i --tty=false ${resource} -c ${container} -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', mysqldump/gzip on disk failed!"
+    kubectl -n "$ns" exec -i --tty=false "$resource" -c "$container" -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', mysqldump/gzip on disk failed!"
         # inject default MYSQL_PWD into current env (before cmds are visible in logs)
         export MYSQL_PWD=${mysql_pass}
 

@@ -27,10 +27,17 @@ vs_get_retain_labels() {
 
     # Note that even tough using printf for formatting dates might be a best practise (https://stackoverflow.com/questions/1401482/yyyy-mm-dd-format-date-in-shell-script)
     # we are still using date, as it is more portable (osx has no printf with date formatting support)
-    local hourly_label=$(date +"%Y-%m-%d-%H00")
-    local daily_label=$(date +"%Y-%m-%d")
-    local weekly_label=$(date +"%Y-w%U")
-    local monthly_label=$(date +"%Y-%m")
+    local hourly_label
+    hourly_label=$(date +"%Y-%m-%d-%H00")
+
+    local daily_label
+    daily_label=$(date +"%Y-%m-%d")
+    
+    local weekly_label
+    weekly_label=$(date +"%Y-w%U")
+    
+    local monthly_label
+    monthly_label=$(date +"%Y-%m")
 
     local labels=""
 
@@ -38,35 +45,35 @@ vs_get_retain_labels() {
 backup-ns.sh/retain: "hourly_daily_weekly_monthly"
 EOF
 
-    if [ "$(kubectl -n ${ns} get volumesnapshot -l backup-ns.sh/hourly=${hourly_label} -o name)" == "" ]; then
+    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/hourly="$hourly_label" -o name)" == "" ]; then
         read -r -d '' labels << EOF
 ${labels}
 backup-ns.sh/hourly: "${hourly_label}"
 EOF
     fi
 
-    if [ "$(kubectl -n ${ns} get volumesnapshot -l backup-ns.sh/daily=${daily_label} -o name)" == "" ]; then
+    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/daily="$daily_label" -o name)" == "" ]; then
         read -r -d '' labels << EOF
 ${labels}
 backup-ns.sh/daily: "${daily_label}"
 EOF
     fi
 
-    if [ "$(kubectl -n ${ns} get volumesnapshot -l backup-ns.sh/weekly=${weekly_label} -o name)" == "" ]; then
+    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/weekly="$weekly_label" -o name)" == "" ]; then
         read -r -d '' labels << EOF
 ${labels}
 backup-ns.sh/weekly: "${weekly_label}"
 EOF
     fi
 
-    if [ "$(kubectl -n ${ns} get volumesnapshot -l backup-ns.sh/monthly=${monthly_label} -o name)" == "" ]; then
+    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/monthly="$monthly_label" -o name)" == "" ]; then
         read -r -d '' labels << EOF
 ${labels}
 backup-ns.sh/monthly: "${monthly_label}"
 EOF
     fi
 
-    echo "${labels}"
+    echo "$labels"
 }
 
 
@@ -78,6 +85,7 @@ vs_template() {
     local labels=$5
     local annotations=$6
 
+    # shellcheck disable=SC2001
     cat <<EOF
 apiVersion: snapshot.storage.k8s.io/v1
 kind: VolumeSnapshot
@@ -108,19 +116,19 @@ vs_create() {
     log "creating ns='${ns}' pvc_name='${pvc_name}' 'VolumeSnapshot/${vs_name}' (dry_run='${dry_run}')..."
 
     # dry-run mode? bail out early!
-    if [ "${dry_run}" == "true" ]; then
+    if [ "$dry_run" == "true" ]; then
 
         # at least validate the vs object
-        echo "${vs_object}" | kubectl -n ${ns} apply --validate=true --dry-run=client -f -
+        echo "$vs_object" | kubectl -n "$ns" apply --validate=true --dry-run=client -f -
 
-        warn "skipping - dry-run mode is active!"´
+        warn "skipping - dry-run mode is active!"
         return
     fi
 
-    echo "${vs_object}" | kubectl -n ${ns} apply -f -
+    echo "$vs_object" | kubectl -n "$ns" apply -f -
 
     # wait for the snapshot to be ready...
-    if [ "${wait_until_ready}" == "true" ]; then
+    if [ "$wait_until_ready" == "true" ]; then
         log "waiting for ns='${ns}' 'VolumeSnapshot/${vs_name}' to be ready (timeout='${wait_until_ready_timeout}')..."
         
         # give kubectl some time to actually have a status field to wait for
@@ -129,10 +137,10 @@ vs_create() {
         sleep 5
         
         # We ignore the exit code here, as we want to continue with the script even if the wait fails.
-        kubectl -n ${ns} wait --for=jsonpath='{.status.readyToUse}'=true --timeout=${wait_until_ready_timeout} volumesnapshot/${vs_name} || true
+        kubectl -n "$ns" wait --for=jsonpath='{.status.readyToUse}'=true --timeout="$wait_until_ready_timeout" volumesnapshot/"$vs_name" || true
     fi
 
-    kubectl -n ${ns} get volumesnapshot/${vs_name}
+    kubectl -n "$ns" get volumesnapshot/"$vs_name"
 
     # TODO: supply additional checks to ensure the snapshot is actually ready and useable?
 

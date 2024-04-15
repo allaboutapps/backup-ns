@@ -14,7 +14,7 @@ flock_shuffle_lock_file() {
     local dir=$1
     local count=$2
 
-    echo "${dir}/$(shuf -i1-${count} -n1).lock"
+    echo "${dir}/$(shuf -i1-"$count" -n1).lock"
 }
 
 flock_lock() {
@@ -25,13 +25,13 @@ flock_lock() {
     log "trying to obtain lock on '${lock_file}' (timeout='${timeout}' dry_run='${dry_run}')..."
 
     # dry-run mode? bail out early!
-    if [ "${dry_run}" == "true" ]; then
+    if [ "$dry_run" == "true" ]; then
         warn "skipping - dry-run mode is active!"
         return
     fi
 
-    exec 99>${lock_file}
-    flock --timeout "${timeout}" 99
+    exec 99>"$lock_file"
+    flock --timeout "$timeout" 99
     log "Got lock on '${lock_file}'!"
 }
 
@@ -42,7 +42,7 @@ flock_unlock() {
     log "releasing lock from '${lock_file}' (dry_run='${dry_run}')..."
 
     # dry-run mode? bail out early!
-    if [ "${dry_run}" == "true" ]; then
+    if [ "$dry_run" == "true" ]; then
         warn "skipping - dry-run mode is active!"
         return
     fi

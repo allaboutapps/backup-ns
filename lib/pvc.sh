@@ -15,7 +15,7 @@ pvc_ensure_available() {
     log "check ns='${ns}' pvc='${pvc}' exists..."
 
     # ensure target pvc exists
-    kubectl -n ${ns} get pvc ${pvc} \
+    kubectl -n "$ns" get pvc "$pvc" \
         || fatal "ns='${ns}' pvc='${pvc}' not found."
 }
 
@@ -29,7 +29,7 @@ pvc_ensure_free_space() {
 
     log "check free space on ns='${ns}' resource='${resource}' container='${container}' dir='${dir}' threshold='${threshold}'..."
 
-    kubectl -n ${ns} exec -i --tty=false ${resource} -c ${container} -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}' dir='${dir}'."
+    kubectl -n "$ns" exec -i --tty=false "$resource" -c "$container" -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}' dir='${dir}'."
         set -Eeo pipefail
 
         # check clis are available

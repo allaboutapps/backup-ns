@@ -46,7 +46,7 @@ function main() {
     verbose "$(env_bak_config)"
 
     # check host requirements before starting to ensure we are not missing any required tools on the host
-    utils_check_host_requirements ${BAK_FLOCK}
+    utils_check_host_requirements "$BAK_FLOCK"
 
     log "starting backup in namespace='${BAK_NAMESPACE}'..."
 
@@ -65,106 +65,111 @@ function main() {
     # if we are using flock, we immediately ensure the lock on the node before proceeding with any other checks (reduce the risks of perf. hits)
     if [ "$BAK_FLOCK" == "true" ]; then
 
-        local lock_file=$(flock_shuffle_lock_file \
-            ${BAK_FLOCK_DIR} \
-            ${BAK_FLOCK_COUNT} \
+        local lock_file
+        lock_file=$(flock_shuffle_lock_file \
+            "$BAK_FLOCK_DIR" \
+            "$BAK_FLOCK_COUNT" \
         )
 
         log "using lock_file='${lock_file}'..."
 
         # we trap the unlock to ensure we always release the lock
-        trap "flock_unlock ${lock_file} ${BAK_DRY_RUN}" EXIT
-        flock_lock ${lock_file} ${BAK_FLOCK_TIMEOUT_SEC} ${BAK_DRY_RUN}
+        trap 'flock_unlock ${lock_file} ${BAK_DRY_RUN}' EXIT
+        flock_lock "$lock_file" "$BAK_FLOCK_TIMEOUT_SEC" "$BAK_DRY_RUN"
     fi
 
     # set volume snapshot name by evaluating the template (after we acquired the lock)
-    local vs_name=$(eval "echo ${BAK_VS_NAME_TEMPLATE}")
+    local vs_name
+    vs_name=$(eval "echo ${BAK_VS_NAME_TEMPLATE}")
     log "vs_name='${vs_name}'"
 
     # is the PVC available?
-    pvc_ensure_available ${BAK_NAMESPACE} ${BAK_PVC_NAME}
+    pvc_ensure_available "$BAK_NAMESPACE" "$BAK_PVC_NAME"
 
     # check+dump postgresql?
     if [ "$BAK_DB_POSTGRES" == "true" ]; then
         postgres_ensure_available \
-            ${BAK_NAMESPACE} \
-            ${BAK_DB_POSTGRES_EXEC_RESOURCE} \
-            ${BAK_DB_POSTGRES_EXEC_CONTAINER} \
-            ${BAK_DB_POSTGRES_DB} \
-            ${BAK_DB_POSTGRES_USER} \
-            ${BAK_DB_POSTGRES_PASSWORD}
+            "$BAK_NAMESPACE" \
+            "$BAK_DB_POSTGRES_EXEC_RESOURCE" \
+            "$BAK_DB_POSTGRES_EXEC_CONTAINER" \
+            "$BAK_DB_POSTGRES_DB" \
+            "$BAK_DB_POSTGRES_USER" \
+            "$BAK_DB_POSTGRES_PASSWORD"
 
         pvc_ensure_free_space \
-            ${BAK_NAMESPACE} \
-            ${BAK_DB_POSTGRES_EXEC_RESOURCE} \
-            ${BAK_DB_POSTGRES_EXEC_CONTAINER} \
-            ${BAK_DB_POSTGRES_DUMP_DIR} \
-            ${BAK_THRESHOLD_SPACE_USED_PERCENTAGE}
+            "$BAK_NAMESPACE" \
+            "$BAK_DB_POSTGRES_EXEC_RESOURCE" \
+            "$BAK_DB_POSTGRES_EXEC_CONTAINER" \
+            "$BAK_DB_POSTGRES_DUMP_DIR" \
+            "$BAK_THRESHOLD_SPACE_USED_PERCENTAGE"
 
         postgres_backup \
-            ${BAK_NAMESPACE} \
-            ${BAK_DB_POSTGRES_EXEC_RESOURCE} \
-            ${BAK_DB_POSTGRES_EXEC_CONTAINER} \
-            ${BAK_DB_POSTGRES_DB} \
-            ${BAK_DB_POSTGRES_USER} \
-            ${BAK_DB_POSTGRES_PASSWORD} \
-            ${BAK_DB_POSTGRES_DUMP_FILE} \
-            ${BAK_DRY_RUN}
+            "$BAK_NAMESPACE" \
+            "$BAK_DB_POSTGRES_EXEC_RESOURCE" \
+            "$BAK_DB_POSTGRES_EXEC_CONTAINER" \
+            "$BAK_DB_POSTGRES_DB" \
+            "$BAK_DB_POSTGRES_USER" \
+            "$BAK_DB_POSTGRES_PASSWORD" \
+            "$BAK_DB_POSTGRES_DUMP_FILE" \
+            "$BAK_DRY_RUN"
     fi
 
     # check+dump mysql?
     if [ "$BAK_DB_MYSQL" == "true" ]; then
         mysql_ensure_available \
-            ${BAK_NAMESPACE} \
-            ${BAK_DB_MYSQL_EXEC_RESOURCE} \
-            ${BAK_DB_MYSQL_EXEC_CONTAINER} \
-            ${BAK_DB_MYSQL_HOST} \
-            ${BAK_DB_MYSQL_DB} \
-            ${BAK_DB_MYSQL_USER} \
-            ${BAK_DB_MYSQL_PASSWORD}
+            "$BAK_NAMESPACE" \
+            "$BAK_DB_MYSQL_EXEC_RESOURCE" \
+            "$BAK_DB_MYSQL_EXEC_CONTAINER" \
+            "$BAK_DB_MYSQL_HOST" \
+            "$BAK_DB_MYSQL_DB" \
+            "$BAK_DB_MYSQL_USER" \
+            "$BAK_DB_MYSQL_PASSWORD"
 
         pvc_ensure_free_space \
-            ${BAK_NAMESPACE} \
-            ${BAK_DB_MYSQL_EXEC_RESOURCE} \
-            ${BAK_DB_MYSQL_EXEC_CONTAINER} \
-            ${BAK_DB_MYSQL_DUMP_DIR} \
-            ${BAK_THRESHOLD_SPACE_USED_PERCENTAGE}
+            "$BAK_NAMESPACE" \
+            "$BAK_DB_MYSQL_EXEC_RESOURCE" \
+            "$BAK_DB_MYSQL_EXEC_CONTAINER" \
+            "$BAK_DB_MYSQL_DUMP_DIR" \
+            "$BAK_THRESHOLD_SPACE_USED_PERCENTAGE"
 
         mysql_backup \
-            ${BAK_NAMESPACE} \
-            ${BAK_DB_MYSQL_EXEC_RESOURCE} \
-            ${BAK_DB_MYSQL_EXEC_CONTAINER} \
-            ${BAK_DB_MYSQL_HOST} \
-            ${BAK_DB_MYSQL_DB} \
-            ${BAK_DB_MYSQL_USER} \
-            ${BAK_DB_MYSQL_PASSWORD} \
-            ${BAK_DB_MYSQL_DUMP_FILE} \
-            ${BAK_DRY_RUN}
+            "$BAK_NAMESPACE" \
+            "$BAK_DB_MYSQL_EXEC_RESOURCE" \
+            "$BAK_DB_MYSQL_EXEC_CONTAINER" \
+            "$BAK_DB_MYSQL_HOST" \
+            "$BAK_DB_MYSQL_DB" \
+            "$BAK_DB_MYSQL_USER" \
+            "$BAK_DB_MYSQL_PASSWORD" \
+            "$BAK_DB_MYSQL_DUMP_FILE" \
+            "$BAK_DRY_RUN"
     fi
 
     # setup k8s volume snapshot labels
-    local vs_labels=$(
+    local vs_labels
+    vs_labels=$(
     cat <<EOF
 backup-ns.sh/type: "${BAK_LABEL_VS_TYPE}"
 EOF
 )
 
     # dynamically set backup-ns.sh/pod label
-    if [ "${BAK_LABEL_VS_POD}" != "" ]; then
+    if [ "$BAK_LABEL_VS_POD" != "" ]; then
         vs_labels="${vs_labels}
 backup-ns.sh/pod: \"${BAK_LABEL_VS_POD}\""
     fi
 
     # dynamically set retain labels
-    local vs_retain_labels=$(vs_get_retain_labels ${BAK_NAMESPACE})
-    if [ "${vs_retain_labels}" != "" ]; then
+    local vs_retain_labels
+    vs_retain_labels=$(vs_get_retain_labels "$BAK_NAMESPACE")
+    if [ "$vs_retain_labels" != "" ]; then
         vs_labels="${vs_labels}
-$(echo "${vs_retain_labels}")"
+${vs_retain_labels}"
     fi
 
     # setup k8s volume snapshot annotations
     # BAK_* env vars are serialized into the annotation for later reference
-    local vs_annotations=$(
+    local vs_annotations
+    vs_annotations=$(
     cat <<EOF
 backup-ns.sh/env-config: |-
 $(env_bak_config_serialize | sed 's/^/    /')
@@ -172,29 +177,30 @@ EOF
 )
 
     # template the k8s volume snapshot object
-    local vs_object=$(vs_template \
-        ${BAK_NAMESPACE} \
-        ${BAK_PVC_NAME} \
-        ${vs_name} \
-        ${BAK_VS_CLASS_NAME} \
-        "${vs_labels}" \
-        "${vs_annotations}" \
+    local vs_object
+    vs_object=$(vs_template \
+        "$BAK_NAMESPACE" \
+        "$BAK_PVC_NAME" \
+        "$vs_name" \
+        "$BAK_VS_CLASS_NAME" \
+        "$vs_labels" \
+        "$vs_annotations" \
     )
 
     # print the to-be-created object
-    verbose "${vs_object}"
+    verbose "$vs_object"
 
     # snapshot the disk!
     vs_create \
-        ${BAK_NAMESPACE} \
-        ${BAK_PVC_NAME} \
-        ${vs_name} \
-        "${vs_object}" \
-        ${BAK_VS_WAIT_UNTIL_READY} \
-        ${BAK_VS_WAIT_UNTIL_READY_TIMEOUT} \
-        ${BAK_DRY_RUN}
+        "$BAK_NAMESPACE" \
+        "$BAK_PVC_NAME" \
+        "$vs_name" \
+        "$vs_object" \
+        "$BAK_VS_WAIT_UNTIL_READY" \
+        "$BAK_VS_WAIT_UNTIL_READY_TIMEOUT" \
+        "$BAK_DRY_RUN"
 
-    log "finished backup in namespace='${BAK_NAMESPACE}'!"
+    log "finished backup vs_name='${vs_name}' in namespace='${BAK_NAMESPACE}'!"
 }
 
 main

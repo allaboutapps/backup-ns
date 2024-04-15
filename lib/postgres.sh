@@ -18,12 +18,12 @@ postgres_ensure_available() {
     log "check ns='${ns}' resource='${resource}' is available..."
 
     # print resource
-    kubectl -n ${ns} get ${resource} -o wide \
+    kubectl -n "$ns" get "$resource" -o wide \
         || fatal "resource='${resource}' not found."
 
     log "check exec /bin/bash into ns='${ns}' resource='${resource}' container='${container}' possible, tooling and pg_db='${pg_db}' is available for pg_user='${pg_user}'..."
 
-    kubectl -n ${ns} exec -i --tty=false ${resource} -c ${container} -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', postgresql prerequisites not met!"
+    kubectl -n "$ns" exec -i --tty=false "$resource" -c "$container" -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', postgresql prerequisites not met!"
         # inject default PGPASSWORD into current env (before cmds are visible in logs)
         export PGPASSWORD=${pg_pass}
         
@@ -49,12 +49,13 @@ postgres_backup() {
     local dump_file=$7
     local dry_run=$8
 
-    local dump_dir=$(dirname $dump_file)
+    local dump_dir
+    dump_dir=$(dirname "$dump_file")
 
     log "creating dump inside ns='${ns}' resource='${resource}' container='${container}' pg_db='${pg_db}' pg_user='${pg_user}' dumpfile='${dump_file}' dry_run='${dry_run}'..."
     
     # dry-run mode? bail out early!
-    if [ "${dry_run}" == "true" ]; then
+    if [ "$dry_run" == "true" ]; then
         warn "skipping - dry-run mode is active!"
         return
     fi
@@ -62,7 +63,7 @@ postgres_backup() {
     # trigger postgres backup inside target container of target pod
     # TODO: ensure that pg_dump is no longer running if we kill the script (pod) that executes kubectl exec
 
-    kubectl -n ${ns} exec -i --tty=false ${resource} -c ${container} -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', postgresql dump/gzip on disk failed!"
+    kubectl -n "$ns" exec -i --tty=false "$resource" -c "$container" -- /bin/bash <<- EOF || fatal "exit $? on ns='${ns}' resource='${resource}' container='${container}', postgresql dump/gzip on disk failed!"
         # inject default PGPASSWORD into current env (before cmds are visible in logs)
         export PGPASSWORD=${pg_pass}
 
