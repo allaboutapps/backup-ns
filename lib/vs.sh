@@ -15,7 +15,7 @@ set -Eeo pipefail
 #    backup-ns.sh/retain: "hourly_daily_weekly_monthly"
 #    backup-ns.sh/hourly: e.g. "2024-04-0900"
 #    backup-ns.sh/daily: e.g. "2024-04-11"
-#    backup-ns.sh/weekly: e.g. "2024-w15"
+#    backup-ns.sh/weekly: e.g. "2024-w15" # ISO: Monday as first day of week, see https://unix.stackexchange.com/questions/282609/how-to-use-the-date-command-to-display-week-number-of-the-year
 #    backup-ns.sh/monthly: e.g. "2024-04"
 # 
 # All dates use the **LOCAL TIMEZONE** of the machine executing the script!
@@ -34,7 +34,7 @@ vs_get_retain_labels() {
     daily_label=$(date +"%Y-%m-%d")
     
     local weekly_label
-    weekly_label=$(date +"%Y-w%U")
+    weekly_label=$(date +"%Y-w%V")
     
     local monthly_label
     monthly_label=$(date +"%Y-%m")
