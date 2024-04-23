@@ -34,6 +34,6 @@ COPY --from=base --chmod=0777 /app/backup-ns.sh /app/backup-ns.sh
 COPY --from=base /app/lib /app/lib
 
 # sanity check all the required cli tools are installed in the image
-RUN bash -c "source /app/lib/utils.sh && utils_check_host_requirements true"
+RUN bash -c "source /app/lib/utils.sh && utils_check_host_requirements true false"
 
 ENTRYPOINT ["/app/backup-ns.sh"]

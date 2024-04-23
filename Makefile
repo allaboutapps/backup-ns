@@ -13,10 +13,10 @@ format:
 
 .PHONY: lint
 lint:
-	@shellharden --check *.sh
-	@shellharden --check **/*.sh
 	@shellcheck -x *.sh
 	@shellcheck -x **/*.sh
+	@shellharden --check *.sh
+	@shellharden --check **/*.sh
 
 # normal POSIX bash shell mode
 SHELL = /bin/bash

@@ -41,6 +41,7 @@ vs_get_retain_labels() {
 
     local labels=""
 
+    # TODO allow to configure the applied labels via env vars
     read -r -d '' labels << EOF
 backup-ns.sh/retain: "hourly_daily_weekly_monthly"
 EOF
@@ -146,4 +147,48 @@ vs_create() {
 
     # TODO: we should also annotate the created VSC - but not within this script (RBAC, only require access to VS)
     # instead move that to the retention worker, which must operate on VSCs anyways.
+}
+
+vs_sync_labels_to_vsc() {
+    local ns=$1
+    local vs_name=$2
+    local search_prefix=$3 # e.g. "backup-ns.sh/"
+    
+    # Get the VolumeSnapshotContent name referenced by the VolumeSnapshot
+    vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
+
+    if [ "$vsc_name" = "" ]; then
+        err "VolumeSnapshot $vs_name does not have a boundVolumeSnapshotContentName."
+        return
+    fi
+
+    # Get labels of the VolumeSnapshot, space separated key=value pairs
+    vs_labels_to_add=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.metadata.labels}' \
+        | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)=\(.value)"' \
+        | tr '\n' ' ')
+
+    if [ "$vs_labels_to_add" = "" ]; then
+        err "VolumeSnapshot $vs_name does not have any labels we are interested in."
+        return
+    fi
+    verbose "$vs_labels_to_add"
+
+    # Get labels of the VolumeSnapshotContent (if any), only the keys are needed
+    vsc_label_keys_to_delete=$(kubectl get volumesnapshotcontent "$vsc_name" -o jsonpath='{.metadata.labels}' \
+        | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)-"' \
+        | tr '\n' ' ')
+
+    if [ "$vsc_label_keys_to_delete" != "" ]; then
+        verbose "$vsc_label_keys_to_delete"
+
+        log "Deleting preexisting labels from $vsc_name ..."
+        eval "kubectl label volumesnapshotcontent ${vsc_name} ${vsc_label_keys_to_delete}"
+    fi
+
+    # Apply labels and annotations to the VolumeSnapshotContent
+    log "Syncing labels from VolumeSnapshot to VolumeSnapshotContent..."
+    eval "kubectl label volumesnapshotcontent ${vsc_name} ${vs_labels_to_add}"
+
+    # kubectl get volumesnapshot "$vs_name" -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels
+    kubectl get volumesnapshotcontent "$vsc_name" -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels
 }

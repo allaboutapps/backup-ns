@@ -29,7 +29,7 @@ set -Eeo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 # echo "SCRIPT_DIR: ${SCRIPT_DIR}"
 
-source "${SCRIPT_DIR}/lib/env.sh"
+source "${SCRIPT_DIR}/lib/bak_env.sh"
 source "${SCRIPT_DIR}/lib/utils.sh"
 source "${SCRIPT_DIR}/lib/flock.sh"
 source "${SCRIPT_DIR}/lib/mysql.sh"
@@ -43,7 +43,7 @@ source "${SCRIPT_DIR}/lib/vs.sh"
 # we encapsulate main to allow for local variable declarations
 function main() {
     # print the parsed env config
-    verbose "$(env_bak_config)"
+    verbose "$(bak_env_config)"
 
     # check host requirements before starting to ensure we are not missing any required tools on the host
     utils_check_host_requirements "$BAK_FLOCK"
@@ -172,7 +172,7 @@ ${vs_retain_labels}"
     vs_annotations=$(
     cat <<EOF
 backup-ns.sh/env-config: |-
-$(env_bak_config_serialize | sed 's/^/    /')
+$(bak_env_config_serialize | sed 's/^/    /')
 EOF
 )
 

@@ -124,21 +124,17 @@ if [ "$BAK_FLOCK" == "true" ]; then
     BAK_FLOCK_TIMEOUT_SEC="${BAK_FLOCK_TIMEOUT_SEC:="3600"}" # default 1h
 fi
 
-# BAK_COLORS: if true, colored output is enabled
-BAK_COLORS="${BAK_COLORS:=$( (which tput > /dev/null 2>&1 && [[ $(tput -T"$TERM" colors) -ge 8 ]] && echo "true") || echo "false")}" 
-
-
 # functions
 # ------------------------------
 
-env_bak_config() {
+bak_env_config() {
     # log set globals by prefix
     # automatically strip out *_PASSWORD vars for security reasons 
     ( set -o posix ; set ) | grep "BAK_" | grep -v "_PASSWORD"
 }
 
-env_bak_config_serialize() {
+bak_env_config_serialize() {
     # serialize truthy BAK_DB_* vars
     # this is used to store the env config as vs annotation
-    env_bak_config | grep "BAK_DB_" | grep -v "=false"
+    bak_env_config | grep "BAK_DB_" | grep -v "=false"
 }
