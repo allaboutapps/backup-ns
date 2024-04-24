@@ -53,6 +53,7 @@ utils_check_host_requirements() {
     command -v cat >/dev/null || fatal "cat is required but not found."
     command -v sed >/dev/null || fatal "sed is required but not found."
     command -v awk >/dev/null || fatal "awk is required but not found."
+    command -v head >/dev/null || fatal "head is required but not found."
     command -v grep >/dev/null || fatal "grep is required but not found."
     command -v dirname >/dev/null || fatal "dirname is required but not found."
     command -v uniq >/dev/null || fatal "uniq is required but not found."
