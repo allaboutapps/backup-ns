@@ -8,27 +8,28 @@ set -Eeo pipefail
 # functions
 # ------------------------------
 
-# Retention related labeling. We directly flag the first hourly, daily, weekly, monthly snapshot.
+# Retention related labeling. We directly flag the first daily, weekly, monthly snapshot.
 # A (separate) retention worker can then use these labels to determine if a cleanup of this snapshot should happen.
 #
 # The following labels are used:
-#    backup-ns.sh/retain: "hourly_daily_weekly_monthly"
-#    backup-ns.sh/hourly: e.g. "2024-04-0900"
-#    backup-ns.sh/daily: e.g. "2024-04-11"
-#    backup-ns.sh/weekly: e.g. "2024-w15" # ISO: Monday as first day of week, see https://unix.stackexchange.com/questions/282609/how-to-use-the-date-command-to-display-week-number-of-the-year
+#    backup-ns.sh/retain: "daily_weekly_monthly"
 #    backup-ns.sh/monthly: e.g. "2024-04"
+#    backup-ns.sh/weekly: e.g. "2024-w15" # ISO: Monday as first day of week, see https://unix.stackexchange.com/questions/282609/how-to-use-the-date-command-to-display-week-number-of-the-year
+#    backup-ns.sh/daily: e.g. "2024-04-11"
+#### #    backup-ns.sh/hourly: e.g. "2024-04-0900" # disabled for now, as it is not really useful for most use-cases
 # 
 # All dates use the **LOCAL TIMEZONE** of the machine executing the script!
 #
 # We simply try to kubectl get a prefixing snapshot with the same label and if it does not exist, we set the label on the new snapshot.
 # This way we can ensure that the first snapshot of a day, week, month is always flagged.
+# The assumption here is that the backup procedure is run at least once a day.
 vs_get_retain_labels() {
     local ns=$1
 
     # Note that even tough using printf for formatting dates might be a best practise (https://stackoverflow.com/questions/1401482/yyyy-mm-dd-format-date-in-shell-script)
     # we are still using date, as it is more portable (osx has no printf with date formatting support)
-    local hourly_label
-    hourly_label=$(date +"%Y-%m-%d-%H00")
+    # local hourly_label
+    # hourly_label=$(date +"%Y-%m-%d-%H00")
 
     local daily_label
     daily_label=$(date +"%Y-%m-%d")
@@ -43,15 +44,15 @@ vs_get_retain_labels() {
 
     # TODO allow to configure the applied labels via env vars
     read -r -d '' labels << EOF
-backup-ns.sh/retain: "hourly_daily_weekly_monthly"
+backup-ns.sh/retain: "daily_weekly_monthly"
 EOF
 
-    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/hourly="$hourly_label" -o name)" == "" ]; then
-        read -r -d '' labels << EOF
-${labels}
-backup-ns.sh/hourly: "${hourly_label}"
-EOF
-    fi
+#     if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/hourly="$hourly_label" -o name)" == "" ]; then
+#         read -r -d '' labels << EOF
+# ${labels}
+# backup-ns.sh/hourly: "${hourly_label}"
+# EOF
+#     fi
 
     if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/daily="$daily_label" -o name)" == "" ]; then
         read -r -d '' labels << EOF
