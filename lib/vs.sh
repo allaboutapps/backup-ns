@@ -160,29 +160,42 @@ vs_sync_labels_to_vsc() {
     # Get the VolumeSnapshotContent name referenced by the VolumeSnapshot
     vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
 
-    if [ "$vsc_name" = "" ]; then
+    if [ "$vsc_name" == "" ]; then
         err "volumeSnapshot $vs_name does not have a boundVolumeSnapshotContentName."
         return
     fi
 
     # Get labels of the VolumeSnapshot, space separated key=value pairs
-    vs_labels_to_add=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.metadata.labels}' \
-        | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)=\(.value)"' \
-        | tr '\n' ' ')
+    vs_labels=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.metadata.labels}' \
+        | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)=\(.value)"')
 
-    if [ "$vs_labels_to_add" = "" ]; then
+    if [ "$vs_labels" == "" ]; then
         err "volumeSnapshot $vs_name does not have any labels we are interested in."
         return
     fi
-    verbose "$vs_labels_to_add"
 
     # Get labels of the VolumeSnapshotContent (if any), only the keys are needed
-    vsc_label_keys_to_delete=$(kubectl get volumesnapshotcontent "$vsc_name" -o jsonpath='{.metadata.labels}' \
-        | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)-"' \
-        | tr '\n' ' ')
+    vsc_labels=$(kubectl get volumesnapshotcontent "$vsc_name" -o jsonpath='{.metadata.labels}' \
+        | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)=\(.value)"')
 
-    if [ "$vsc_label_keys_to_delete" != "" ]; then
-        verbose "$vsc_label_keys_to_delete"
+    label_diff=$(sort <(echo "$vs_labels" | sort) <(echo "$vsc_labels" | sort) | uniq -u | tr '\n' ' ' | xargs)
+    if [ "$label_diff" != "" ]; then
+        verbose "label_diff=${label_diff}"
+    fi
+
+    # there is a diff - we simply delete and apply all the labels again on the vsc, first get it in a comma separated format (xargs to trim whitespace)...
+    label_del=$(printf '%s\n' "${vsc_labels[@]}" | sed 's/=.*$/-/' | tr '\n' ' ' | xargs)
+    label_add=$(printf '%s\n' "${vs_labels[@]}" | tr '\n' ' ' | xargs)
+
+    verbose "label_add=${label_add}"
+
+    if [ "$label_diff" = "" ]; then
+        warn "noop VolumeSnapshotContent vsc_name='${vsc_name}' already in sync."
+        return
+    fi
+     
+    if [ "$label_del" != "" ]; then
+        verbose "label_del=${label_del}"
     fi
 
     if [ "$dry_run" == "true" ]; then
@@ -190,14 +203,20 @@ vs_sync_labels_to_vsc() {
         return
     fi
 
-    if [ "$vsc_label_keys_to_delete" != "" ]; then
+    if [ "$label_del" != "" ]; then
         log "deleting preexisting labels from VolumeSnapshotContent vsc_name='${vsc_name}' matchin search_prefix='${search_prefix}'..."
-        eval "kubectl label volumesnapshotcontent ${vsc_name} ${vsc_label_keys_to_delete}"
+        if ! eval "kubectl label volumesnapshotcontent ${vsc_name} ${label_del}"; then
+            err "failed to delete labels from VolumeSnapshotContent vsc_name='${vsc_name}'!"
+            return 1
+        fi
     fi
 
     # Apply labels and annotations to the VolumeSnapshotContent
     log "syncing labels from VolumeSnapshot ns='${ns}' vs_name='${vs_name}' to VolumeSnapshotContent vsc_name='${vsc_name}'..."
-    eval "kubectl label volumesnapshotcontent ${vsc_name} ${vs_labels_to_add}"
+    if ! eval "kubectl label volumesnapshotcontent ${vsc_name} ${label_add}"; then
+        err "failed to apply labels to VolumeSnapshotContent vsc_name='${vsc_name}'!"
+        return 1
+    fi
 
     # kubectl get volumesnapshot "$vs_name" -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels
     kubectl get volumesnapshotcontent "$vsc_name" -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels
