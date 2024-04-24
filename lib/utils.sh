@@ -55,6 +55,10 @@ utils_check_host_requirements() {
     command -v awk >/dev/null || fatal "awk is required but not found."
     command -v grep >/dev/null || fatal "grep is required but not found."
     command -v dirname >/dev/null || fatal "dirname is required but not found."
+    command -v uniq >/dev/null || fatal "uniq is required but not found."
+    command -v sort >/dev/null || fatal "sort is required but not found."
+    command -v tr >/dev/null || fatal "tr is required but not found."
+    command -v xargs >/dev/null || fatal "xargs is required but not found."
     command -v kubectl >/dev/null || fatal "kubectl is required but not found."
 
     if [ "$flock_required" == "true" ]; then

@@ -162,7 +162,7 @@ vs_sync_labels_to_vsc() {
 
     if [ "$vsc_name" == "" ]; then
         err "volumeSnapshot $vs_name does not have a boundVolumeSnapshotContentName."
-        return
+        return 1
     fi
 
     # Get labels of the VolumeSnapshot, space separated key=value pairs
@@ -171,7 +171,7 @@ vs_sync_labels_to_vsc() {
 
     if [ "$vs_labels" == "" ]; then
         err "volumeSnapshot $vs_name does not have any labels we are interested in."
-        return
+        return 1
     fi
 
     # Get labels of the VolumeSnapshotContent (if any), only the keys are needed
