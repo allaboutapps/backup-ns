@@ -74,7 +74,11 @@ function main() {
         log "using lock_file='${lock_file}'..."
 
         # we trap the unlock to ensure we always release the lock
-        trap 'flock_unlock ${lock_file} ${BAK_DRY_RUN}' EXIT
+        local trap_cmd
+        trap_cmd="flock_unlock ${lock_file} ${BAK_DRY_RUN}"
+
+        # shellcheck disable=SC2064
+        trap "$trap_cmd" EXIT
         flock_lock "$lock_file" "$BAK_FLOCK_TIMEOUT_SEC" "$BAK_DRY_RUN"
     fi
 
