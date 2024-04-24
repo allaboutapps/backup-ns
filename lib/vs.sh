@@ -153,12 +153,15 @@ vs_sync_labels_to_vsc() {
     local ns=$1
     local vs_name=$2
     local search_prefix=$3 # e.g. "backup-ns.sh/"
+    local dry_run=$4
     
+    log "syncing labels from VolumeSnapshot to VolumeSnapshotContent for ns='${ns}' vs_name='${vs_name}' search_prefix='${search_prefix}'..."
+
     # Get the VolumeSnapshotContent name referenced by the VolumeSnapshot
     vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
 
     if [ "$vsc_name" = "" ]; then
-        err "VolumeSnapshot $vs_name does not have a boundVolumeSnapshotContentName."
+        err "volumeSnapshot $vs_name does not have a boundVolumeSnapshotContentName."
         return
     fi
 
@@ -168,7 +171,7 @@ vs_sync_labels_to_vsc() {
         | tr '\n' ' ')
 
     if [ "$vs_labels_to_add" = "" ]; then
-        err "VolumeSnapshot $vs_name does not have any labels we are interested in."
+        err "volumeSnapshot $vs_name does not have any labels we are interested in."
         return
     fi
     verbose "$vs_labels_to_add"
@@ -180,13 +183,20 @@ vs_sync_labels_to_vsc() {
 
     if [ "$vsc_label_keys_to_delete" != "" ]; then
         verbose "$vsc_label_keys_to_delete"
+    fi
 
-        log "Deleting preexisting labels from $vsc_name ..."
+    if [ "$dry_run" == "true" ]; then
+        warn "skipping - dry-run mode is active!"
+        return
+    fi
+
+    if [ "$vsc_label_keys_to_delete" != "" ]; then
+        log "deleting preexisting labels from VolumeSnapshotContent vsc_name='${vsc_name}' matchin search_prefix='${search_prefix}'..."
         eval "kubectl label volumesnapshotcontent ${vsc_name} ${vsc_label_keys_to_delete}"
     fi
 
     # Apply labels and annotations to the VolumeSnapshotContent
-    log "Syncing labels from VolumeSnapshot to VolumeSnapshotContent..."
+    log "syncing labels from VolumeSnapshot ns='${ns}' vs_name='${vs_name}' to VolumeSnapshotContent vsc_name='${vsc_name}'..."
     eval "kubectl label volumesnapshotcontent ${vsc_name} ${vs_labels_to_add}"
 
     # kubectl get volumesnapshot "$vs_name" -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels
