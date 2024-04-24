@@ -162,7 +162,7 @@ vs_sync_labels_to_vsc() {
     vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
 
     if [ "$vsc_name" == "" ]; then
-        err "volumeSnapshot $vs_name does not have a boundVolumeSnapshotContentName."
+        err "volumeSnapshot vs_name='$vs_name' in ns='$ns' not found or does not have a boundVolumeSnapshotContentName."
         return 1
     fi
 
@@ -171,7 +171,7 @@ vs_sync_labels_to_vsc() {
         | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)=\(.value)"')
 
     if [ "$vs_labels" == "" ]; then
-        err "volumeSnapshot $vs_name does not have any labels we are interested in."
+        err "volumeSnapshot vs_name='$vs_name' in ns='$ns' does not have any labels we are interested in."
         return 1
     fi
 
@@ -221,4 +221,34 @@ vs_sync_labels_to_vsc() {
 
     # kubectl get volumesnapshot "$vs_name" -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels
     kubectl get volumesnapshotcontent "$vsc_name" -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels
+}
+
+# Dangerous!
+# Delete a VolumeSnapshot, its associated VolumeSnapshotContent and the underlying storage!
+# This is a destructive operation and should be used with caution!
+# This function will set the deletionPolicy of the VolumeSnapshotContent to "Delete" before deleting the VolumeSnapshot, thus ensuring the underlying storage is also deleted.
+vs_delete() {
+    local ns=$1
+    local vs_name=$2
+    # local dry_run=$3
+
+    kubectl get volumesnapshot "$vs_name" -n "$ns" --show-labels
+
+    # Get the VolumeSnapshotContent name referenced by the VolumeSnapshot
+    vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
+
+    if [ "$vsc_name" == "" ]; then
+        fatal "volumeSnapshot vs_name='$vs_name' in ns='$ns' not found or does not have a boundVolumeSnapshotContentName."
+    fi
+
+    kubectl get volumesnapshotcontent "$vsc_name" -n "$ns" --show-labels
+
+    warn "Patching vsc_name='${vsc_name}' deletionPolicy to 'Delete' before deleting VolumeSnapshot vs_name='${vs_name}' in ns='${ns}'..." 
+    kubectl patch "vsc/${vsc_name}" --type='json' -p='[{"op": "replace", "path": "/spec/deletionPolicy", "value":"Delete"}]'
+
+    warn "Deleting VolumeSnapshot vs_name='${vs_name}' in ns='${ns}'..."
+    kubectl -n "$ns" delete volumesnapshot "$vs_name"
+
+    kubectl get volumesnapshot "$vs_name" -n "$ns" || true
+    kubectl get volumesnapshotcontent "$vsc_name" || true
 }
