@@ -50,17 +50,18 @@ utils_check_host_requirements() {
     local jq_required=$2
 
     # check required cli tooling is available on the system that executes this script
-    command -v cat >/dev/null || fatal "cat is required but not found."
-    command -v sed >/dev/null || fatal "sed is required but not found."
     command -v awk >/dev/null || fatal "awk is required but not found."
-    command -v head >/dev/null || fatal "head is required but not found."
-    command -v grep >/dev/null || fatal "grep is required but not found."
+    command -v cat >/dev/null || fatal "cat is required but not found."
     command -v dirname >/dev/null || fatal "dirname is required but not found."
-    command -v uniq >/dev/null || fatal "uniq is required but not found."
-    command -v sort >/dev/null || fatal "sort is required but not found."
-    command -v tr >/dev/null || fatal "tr is required but not found."
-    command -v xargs >/dev/null || fatal "xargs is required but not found."
+    command -v grep >/dev/null || fatal "grep is required but not found."
+    command -v head >/dev/null || fatal "head is required but not found."
     command -v kubectl >/dev/null || fatal "kubectl is required but not found."
+    command -v sed >/dev/null || fatal "sed is required but not found."
+    command -v sort >/dev/null || fatal "sort is required but not found."
+    command -v tac >/dev/null || fatal "tac is required but not found."
+    command -v tr >/dev/null || fatal "tr is required but not found."
+    command -v uniq >/dev/null || fatal "uniq is required but not found."
+    command -v xargs >/dev/null || fatal "xargs is required but not found."
 
     if [ "$flock_required" == "true" ]; then
         command -v flock >/dev/null || fatal "flock is required but not found."
