@@ -13,9 +13,61 @@ source "${SCRIPT_DIR}/lib/utils.sh"
 source "${SCRIPT_DIR}/lib/vs.sh"
 
 RETAIN_DRY_RUN="${RETAIN_DRY_RUN:="false"}"
-RETAIN_LAST_DAILY="${RETAIN_LAST_DAILY:="7"}"
+RETAIN_LAST_DAILY="${RETAIN_LAST_DAILY:="6"}"
 RETAIN_LAST_WEEKLY="${RETAIN_LAST_WEEKLY:="4"}"
 RETAIN_LAST_MONTHLY="${RETAIN_LAST_MONTHLY:="12"}"
+
+FAILS=$((0))
+
+# functions
+# ------------------------------
+
+# TODO operate per origin disk?
+vs_apply_retain_policy() {
+
+    local ns=$1
+    local retain_label=$2 # e.g. backup-ns.sh/daily
+    local retain_count=$3 # e.g. 7
+    local dry_run=$4
+
+    log "processing namespace='${ns}' retain_label='${retain_label}' retain_count='${retain_count}'..."
+
+    # we keep the last $retain_count daily snapshots, let's get all current volumesnapshots with the label "$retain_label" sorted by latest asc
+    sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l "$retain_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
+    snapshots_retained=$(echo "$sorted_snapshots" | head -n "$retain_count")
+    snapshot_kept_count=$(echo "$snapshots_retained" | wc -l | xargs)
+
+    snapshots_to_unlabel=$(sort <(echo "$sorted_snapshots" | sort) <(echo "$snapshots_retained" | sort) | uniq -u)
+
+    verbose "namespace='${ns}' retain_label='${retain_label}' - we will keep it ${snapshot_kept_count}/${retain_count}:"
+    verbose "$snapshots_retained"
+
+    if [ "$snapshots_to_unlabel" != "" ]; then
+
+        log "namespace='${ns}' retain_label='${retain_label}' - we will remove it from:"
+        verbose "$snapshots_to_unlabel"
+
+        while IFS= read -r vs_name; do
+            warn "namespace='${ns}' retain_label='${retain_label}' - unlabeling '${vs_name}' in ns='${ns}'..."
+
+            cmd="kubectl label -n $ns vs/${vs_name} ${retain_label}-"
+
+            # dry-run mode? bail out early!
+            if [ "$dry_run" == "true" ]; then
+                warn "skipping - dry-run mode is active, cmd='${cmd}'"
+                continue
+            fi
+
+            if ! eval "$cmd"; then
+                ((FAILS+=1))
+                err "fail#${FAILS} unlabeling failed for vs_name='${vs_name}' in ns='${ns}'."
+            fi
+        done <<< "$snapshots_to_unlabel"
+    fi
+
+}
+
+# TODO we currently only support a single snapshotted origin disk per namespace
 
 # main
 # ------------------------------
@@ -33,110 +85,20 @@ function main() {
     retain_namespaces=$(kubectl get volumesnapshot --all-namespaces -lbackup-ns.sh/retain -o=jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' | uniq)
 
     verbose "$retain_namespaces"
-
-    fails=$((0))
+    
     while IFS= read -r ns; do
 
-        log "processing namespace='${ns}'..."
-
-        # backup-ns.sh/daily...
-        # we keep the last $RETAIN_LAST_DAILY daily snapshots, let's get all current volumesnapshots with the label "backup-ns.sh/daily" sorted by latest
-        daily=$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/daily -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
-        daily_head=$(echo "$daily" | head -n "$RETAIN_LAST_DAILY")
-        daily_kept_count=$(echo "$daily_head" | wc -l | xargs)
-
-        daily_unlabel=$(sort <(echo "$daily" | sort) <(echo "$daily_head" | sort) | uniq -u)
-
-        verbose "backup-ns.sh/daily - we will keep these ${daily_kept_count}/${RETAIN_LAST_DAILY}:"
-        verbose "$daily_head"
-
-        if [ "$daily_unlabel" != "" ]; then
-            while IFS= read -r vs_name; do
-                warn "backup-ns.sh/daily - unlabeling '${vs_name}' in ns='${ns}'..."
-
-                cmd="kubectl label -n $ns vs/${vs_name} backup-ns.sh/daily-"
-
-                # dry-run mode? bail out early!
-                if [ "$RETAIN_DRY_RUN" == "true" ]; then
-                    warn "skipping - dry-run mode is active, cmd='${cmd}'"
-                    continue
-                fi
-
-                if ! eval "$cmd"; then
-                    ((fails+=1))
-                    err "fail#${fails} unlabeling failed for vs_name='${vs_name}' in ns='${ns}'."
-                fi
-            done <<< "$daily_unlabel"
-        fi
-
-        # backup-ns.sh/weekly...
-        # we keep the last 4 weekly snapshots, let's get all current volumesnapshots with the label "backup-ns.sh/weekly" sorted by latest
-        weekly=$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/weekly -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
-        weekly_head=$(echo "$weekly" | head -n "$RETAIN_LAST_WEEKLY")
-        weekly_kept_count=$(echo "$weekly_head" | wc -l | xargs)
-
-        weekly_unlabel=$(sort <(echo "$weekly" | sort) <(echo "$weekly_head" | sort) | uniq -u)
-
-        verbose "backup-ns.sh/weekly - we will keep these ${weekly_kept_count}/${RETAIN_LAST_WEEKLY}:"
-        verbose "$weekly_head"
-
-        if [ "$weekly_unlabel" != "" ]; then
-            while IFS= read -r vs_name; do
-                warn "backup-ns.sh/weekly - unlabeling '${vs_name}' in ns='${ns}'..."
-
-                cmd="kubectl label -n $ns vs/${vs_name} backup-ns.sh/weekly-"
-
-                # dry-run mode? bail out early!
-                if [ "$RETAIN_DRY_RUN" == "true" ]; then
-                    warn "skipping - dry-run mode is active, cmd='${cmd}'"
-                    continue
-                fi
-
-                if ! eval "$cmd"; then
-                    ((fails+=1))
-                    err "fail#${fails} unlabeling failed for vs_name='${vs_name}' in ns='${ns}'."
-                fi
-            done <<< "$weekly_unlabel"
-        fi
-
-        # backup-ns.sh/monthly...
-        # we keep the last 12 monthly snapshots, let's get all current volumesnapshots with the label "backup-ns.sh/monthly" sorted by latest
-        monthly=$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/monthly -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
-        monthly_head=$(echo "$monthly" | head -n "$RETAIN_LAST_MONTHLY")
-        monthly_kept_count=$(echo "$monthly_head" | wc -l | xargs)
-
-        monthly_unlabel=$(sort <(echo "$monthly" | sort) <(echo "$monthly_head" | sort) | uniq -u)
-
-        verbose "backup-ns.sh/monthly - we will keep these ${monthly_kept_count}/${RETAIN_LAST_MONTHLY}:"
-        verbose "$monthly_head"
-
-        if [ "$monthly_unlabel" != "" ]; then
-            while IFS= read -r vs_name; do
-                warn "backup-ns.sh/monthly - unlabeling '${vs_name}' in ns='${ns}'..."
-
-                cmd="kubectl label -n $ns vs/${vs_name} backup-ns.sh/monthly-"
-
-                # dry-run mode? bail out early!
-                if [ "$RETAIN_DRY_RUN" == "true" ]; then
-                    warn "skipping - dry-run mode is active, cmd='${cmd}'"
-                    continue
-                fi
-
-                if ! eval "$cmd"; then
-                    ((fails+=1))
-                    err "fail#${fails} unlabeling failed for vs_name='${vs_name}' in ns='${ns}'."
-                fi
-            done <<< "$monthly_unlabel"
-        fi
-
+        vs_apply_retain_policy "$ns" "backup-ns.sh/daily" "$RETAIN_LAST_DAILY" "$RETAIN_DRY_RUN"
+        vs_apply_retain_policy "$ns" "backup-ns.sh/weekly" "$RETAIN_LAST_WEEKLY" "$RETAIN_DRY_RUN"
+        vs_apply_retain_policy "$ns" "backup-ns.sh/monthly" "$RETAIN_LAST_MONTHLY" "$RETAIN_DRY_RUN"
 
     done <<< "$retain_namespaces"
 
-    if [ "$fails" -gt 0 ]; then
-        fatal "retain labeler failed with $fails errors."
+    if [ "$FAILS" -gt 0 ]; then
+        fatal "retain labeler failed with $FAILS errors."
     fi
 
-    log "retain labeler done with $fails errors."
+    log "retain labeler done with $FAILS errors."
 
 }
 
