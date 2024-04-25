@@ -13,7 +13,7 @@ source "${SCRIPT_DIR}/lib/utils.sh"
 source "${SCRIPT_DIR}/lib/vs.sh"
 
 RETAIN_DRY_RUN="${RETAIN_DRY_RUN:="false"}"
-RETAIN_LAST_DAILY="${RETAIN_LAST_DAILY:="6"}"
+RETAIN_LAST_DAILY="${RETAIN_LAST_DAILY:="7"}"
 RETAIN_LAST_WEEKLY="${RETAIN_LAST_WEEKLY:="4"}"
 RETAIN_LAST_MONTHLY="${RETAIN_LAST_MONTHLY:="12"}"
 
@@ -22,33 +22,33 @@ FAILS=$((0))
 # functions
 # ------------------------------
 
-# TODO operate per origin disk?
 vs_apply_retain_policy() {
 
     local ns=$1
-    local retain_label=$2 # e.g. backup-ns.sh/daily
-    local retain_count=$3 # e.g. 7
-    local dry_run=$4
+    local pvc_label=$2 # e.g. backup-ns.sh/pvc=data
+    local retain_label=$3 # e.g. backup-ns.sh/daily
+    local retain_count=$4 # e.g. 7
+    local dry_run=$5
 
-    log "processing namespace='${ns}' retain_label='${retain_label}' retain_count='${retain_count}'..."
+    log "processing namespace='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' retain_count='${retain_count}'..."
 
     # we keep the last $retain_count daily snapshots, let's get all current volumesnapshots with the label "$retain_label" sorted by latest asc
-    sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l "$retain_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
+    sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l"$retain_label","$pvc_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
     snapshots_retained=$(echo "$sorted_snapshots" | head -n "$retain_count")
     snapshot_kept_count=$(echo "$snapshots_retained" | wc -l | xargs)
 
     snapshots_to_unlabel=$(sort <(echo "$sorted_snapshots" | sort) <(echo "$snapshots_retained" | sort) | uniq -u)
 
-    verbose "namespace='${ns}' retain_label='${retain_label}' - we will keep it ${snapshot_kept_count}/${retain_count}:"
+    verbose "namespace='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - we will keep it ${snapshot_kept_count}/${retain_count}:"
     verbose "$snapshots_retained"
 
     if [ "$snapshots_to_unlabel" != "" ]; then
 
-        log "namespace='${ns}' retain_label='${retain_label}' - we will remove it from:"
+        log "namespace='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - we will remove it from:"
         verbose "$snapshots_to_unlabel"
 
         while IFS= read -r vs_name; do
-            warn "namespace='${ns}' retain_label='${retain_label}' - unlabeling '${vs_name}' in ns='${ns}'..."
+            warn "namespace='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - unlabeling '${vs_name}' in ns='${ns}'..."
 
             cmd="kubectl label -n $ns vs/${vs_name} ${retain_label}-"
 
@@ -67,7 +67,7 @@ vs_apply_retain_policy() {
 
 }
 
-# TODO we currently only support a single snapshotted origin disk per namespace
+# TODO backup-ns.sh/retain label config is not actually parsed
 
 # main
 # ------------------------------
@@ -88,9 +88,16 @@ function main() {
     
     while IFS= read -r ns; do
 
-        vs_apply_retain_policy "$ns" "backup-ns.sh/daily" "$RETAIN_LAST_DAILY" "$RETAIN_DRY_RUN"
-        vs_apply_retain_policy "$ns" "backup-ns.sh/weekly" "$RETAIN_LAST_WEEKLY" "$RETAIN_DRY_RUN"
-        vs_apply_retain_policy "$ns" "backup-ns.sh/monthly" "$RETAIN_LAST_MONTHLY" "$RETAIN_DRY_RUN"
+        source_disks=$(kubectl get volumesnapshot -n "$ns" -lbackup-ns.sh/retain,backup-ns.sh/pvc -o go-template --template '{{range .items}}{{index .metadata.labels "backup-ns.sh/pvc" -}} {{"\n"}}{{end}}' | uniq)
+        # verbose "$source_disks"
+
+        while IFS= read -r source_disk; do
+
+            vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/daily" "$RETAIN_LAST_DAILY" "$RETAIN_DRY_RUN"
+            vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/weekly" "$RETAIN_LAST_WEEKLY" "$RETAIN_DRY_RUN"
+            vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/monthly" "$RETAIN_LAST_MONTHLY" "$RETAIN_DRY_RUN"
+
+        done <<< "$source_disks"
 
     done <<< "$retain_namespaces"
 

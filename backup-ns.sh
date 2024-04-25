@@ -152,6 +152,7 @@ function main() {
     local vs_labels
     vs_labels=$(
     cat <<EOF
+backup-ns.sh/pvc: "${BAK_PVC_NAME}"
 backup-ns.sh/type: "${BAK_LABEL_VS_TYPE}"
 EOF
 )
