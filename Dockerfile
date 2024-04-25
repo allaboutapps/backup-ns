@@ -37,6 +37,7 @@ WORKDIR /app
 COPY --from=base --chmod=0777 /app/backup-ns.sh /app/backup-ns.sh
 COPY --from=base --chmod=0777 /app/sync-metadata-to-vsc.sh /app/sync-metadata-to-vsc.sh
 COPY --from=base --chmod=0777 /app/retain.sh /app/retain.sh
+COPY --from=base --chmod=0777 /app/mark-and-delete.sh /app/mark-and-delete.sh
 COPY --from=base /app/lib /app/lib
 
 # sanity check all the required cli tools are installed in the image
