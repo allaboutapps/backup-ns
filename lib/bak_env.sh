@@ -63,11 +63,8 @@ if [ "$BAK_DB_POSTGRES" == "true" ]; then
     # BAK_DB_POSTGRES_EXEC_CONTAINER: the container inside the above resource to exec into to create the dump
     BAK_DB_POSTGRES_EXEC_CONTAINER="${BAK_DB_POSTGRES_EXEC_CONTAINER:="postgres"}"
 
-    # BAK_DB_POSTGRES_DUMP_DIR: the directory inside the container to store the dump
-    BAK_DB_POSTGRES_DUMP_DIR="${BAK_DB_POSTGRES_DUMP_DIR:="/var/lib/postgresql/data"}"
-
     # BAK_DB_POSTGRES_DUMP_FILE: the file inside the container to store the dump
-    BAK_DB_POSTGRES_DUMP_FILE="${BAK_DB_POSTGRES_DUMP_FILE:="${BAK_DB_POSTGRES_DUMP_DIR}/dump.sql.gz"}"
+    BAK_DB_POSTGRES_DUMP_FILE="${BAK_DB_POSTGRES_DUMP_FILE:="/var/lib/postgresql/data/dump.sql.gz"}"
 
     # BAK_DB_POSTGRES_USER: the postgresql user to use for connecting/creating the dump (psql and pg_dump must be allowed)
     BAK_DB_POSTGRES_USER="${BAK_DB_POSTGRES_USER:="\${POSTGRES_USER}"}" # defaults to env var within the target container
@@ -89,11 +86,8 @@ if [ "$BAK_DB_MYSQL" == "true" ]; then
     # BAK_DB_MYSQL_EXEC_CONTAINER: the container inside the above resource to exec into to create the dump
     BAK_DB_MYSQL_EXEC_CONTAINER="${BAK_DB_MYSQL_EXEC_CONTAINER:="mysql"}"
 
-    # BAK_DB_MYSQL_DUMP_DIR: the directory inside the container to store the dump
-    BAK_DB_MYSQL_DUMP_DIR="${BAK_DB_MYSQL_DUMP_DIR:="/var/lib/mysql"}"
-
     # BAK_DB_MYSQL_DUMP_FILE: the file inside the container to store the dump
-    BAK_DB_MYSQL_DUMP_FILE="${BAK_DB_MYSQL_DUMP_FILE:="${BAK_DB_MYSQL_DUMP_DIR}/dump.sql.gz"}"
+    BAK_DB_MYSQL_DUMP_FILE="${BAK_DB_MYSQL_DUMP_FILE:="/var/lib/mysql/dump.sql.gz"}"
 
     # BAK_DB_MYSQL_HOST: the mysql host to use for connecting/creating the dump
     BAK_DB_MYSQL_HOST="${BAK_DB_MYSQL_HOST:="127.0.0.1"}"
