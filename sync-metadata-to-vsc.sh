@@ -22,16 +22,14 @@ function main() {
     log "starting sync vs metadata to vsc matching label 'backup-ns.sh/type'"
 
     # Get all VolumeSnapshots that are ready and have the label key "backup-ns.sh/type"
-    ready_snapshots=$(kubectl get volumesnapshot --all-namespaces -lbackup-ns.sh/type -o=jsonpath='{range .items[*]}{.metadata.name} {.metadata.namespace}{"\n"}{end}')
+    local ready_snapshots; ready_snapshots=$(kubectl get volumesnapshot --all-namespaces -lbackup-ns.sh/type -o=jsonpath='{range .items[*]}{.metadata.name} {.metadata.namespace}{"\n"}{end}')
 
-    fails=$((0))
+    local fails; fails=$((0))
 
     while IFS= read -r line; do
-        local vs_name
-        vs_name=$(echo "$line" | awk '{print $1}')
+        local vs_name; vs_name=$(echo "$line" | awk '{print $1}')
 
-        local vs_namespace
-        vs_namespace=$(echo "$line" | awk '{print $2}')
+        local vs_namespace; vs_namespace=$(echo "$line" | awk '{print $2}')
 
         if ! vs_sync_labels_to_vsc "$vs_namespace" "$vs_name" "backup-ns.sh/"; then
             ((fails+=1))

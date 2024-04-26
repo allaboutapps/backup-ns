@@ -13,8 +13,7 @@ vs_get_default_labels() {
     local type=$2 # e.g. "adhoc" or "cronjob"
     local pod=$3 # might be empty string
 
-    local labels
-    labels=$(
+    local labels; labels=$(
     cat <<EOF
 backup-ns.sh/pvc: "${pvc}"
 backup-ns.sh/type: "${type}"
@@ -53,14 +52,9 @@ vs_get_retain_labels() {
     # local hourly_label
     # hourly_label=$(date +"%Y-%m-%d-%H00")
 
-    local daily_label
-    daily_label=$(date +"%Y-%m-%d")
-    
-    local weekly_label
-    weekly_label=$(date +"%Y-w%V")
-    
-    local monthly_label
-    monthly_label=$(date +"%Y-%m")
+    local daily_label; daily_label=$(date +"%Y-%m-%d")
+    local weekly_label; weekly_label=$(date +"%Y-w%V")
+    local monthly_label; monthly_label=$(date +"%Y-%m")
 
     local labels=""
 
@@ -136,17 +130,18 @@ vs_apply_retain_policy() {
     local retain_count=$4 # e.g. 7
     local dry_run=$5
 
-    local fails
-    fails=$((0))
+    local fails; fails=$((0))
 
     log "processing ns='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' retain_count='${retain_count}'..."
 
     # we keep the last $retain_count daily snapshots, let's get all current volumesnapshots with the label "$retain_label" sorted by latest asc
-    sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l"$retain_label","$pvc_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
-    snapshots_retained=$(echo "$sorted_snapshots" | head -n "$retain_count")
-    snapshot_kept_count=$(echo "$snapshots_retained" | wc -l | xargs)
+    local sorted_snapshots; sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l"$retain_label","$pvc_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
 
-    snapshots_to_unlabel=$(sort <(echo "$sorted_snapshots" | sort) <(echo "$snapshots_retained" | sort) | uniq -u)
+    local snapshots_retained; snapshots_retained=$(echo "$sorted_snapshots" | head -n "$retain_count")
+
+    local snapshot_kept_count; snapshot_kept_count=$(echo "$snapshots_retained" | wc -l | xargs)
+
+    local snapshots_to_unlabel; snapshots_to_unlabel=$(sort <(echo "$sorted_snapshots" | sort) <(echo "$snapshots_retained" | sort) | uniq -u)
 
     verbose "ns='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - we will keep it ${snapshot_kept_count}/${retain_count}:"
     verbose "$snapshots_retained"
@@ -159,7 +154,7 @@ vs_apply_retain_policy() {
         while IFS= read -r vs_name; do
             warn "ns='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - unlabeling '${vs_name}' in ns='${ns}'..."
 
-            cmd="kubectl label -n $ns vs/${vs_name} ${retain_label}-"
+            local cmd; cmd="kubectl label -n $ns vs/${vs_name} ${retain_label}-"
 
             # dry-run mode? bail out early!
             if [ "$dry_run" == "true" ]; then
@@ -232,7 +227,7 @@ vs_sync_labels_to_vsc() {
     log "syncing labels from VolumeSnapshot to VolumeSnapshotContent for ns='${ns}' vs_name='${vs_name}' search_prefix='${search_prefix}'..."
 
     # Get the VolumeSnapshotContent name referenced by the VolumeSnapshot
-    vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
+    local vsc_name; vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
 
     if [ "$vsc_name" == "" ]; then
         err "volumeSnapshot vs_name='$vs_name' in ns='$ns' not found or does not have a boundVolumeSnapshotContentName."
@@ -240,7 +235,7 @@ vs_sync_labels_to_vsc() {
     fi
 
     # Get labels of the VolumeSnapshot, space separated key=value pairs
-    vs_labels=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.metadata.labels}' \
+    local vs_labels; vs_labels=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.metadata.labels}' \
         | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)=\(.value)"')
 
     if [ "$vs_labels" == "" ]; then
@@ -249,17 +244,19 @@ vs_sync_labels_to_vsc() {
     fi
 
     # Get labels of the VolumeSnapshotContent (if any), only the keys are needed
-    vsc_labels=$(kubectl get volumesnapshotcontent "$vsc_name" -o jsonpath='{.metadata.labels}' \
+    local vsc_labels; vsc_labels=$(kubectl get volumesnapshotcontent "$vsc_name" -o jsonpath='{.metadata.labels}' \
         | jq --arg search_prefix "$search_prefix" -r 'to_entries[] | select(.key | startswith($search_prefix)) | "\(.key)=\(.value)"')
 
-    label_diff=$(sort <(echo "$vs_labels" | sort) <(echo "$vsc_labels" | sort) | uniq -u | tr '\n' ' ' | xargs)
+    local label_diff; label_diff=$(sort <(echo "$vs_labels" | sort) <(echo "$vsc_labels" | sort) | uniq -u | tr '\n' ' ' | xargs)
+
     if [ "$label_diff" != "" ]; then
         verbose "label_diff=${label_diff}"
     fi
 
     # there is a diff - we simply delete and apply all the labels again on the vsc, first get it in a comma separated format (xargs to trim whitespace)...
-    label_del=$(printf '%s\n' "${vsc_labels[@]}" | sed 's/=.*$/-/' | tr '\n' ' ' | xargs)
-    label_add=$(printf '%s\n' "${vs_labels[@]}" | tr '\n' ' ' | xargs)
+    local label_del; label_del=$(printf '%s\n' "${vsc_labels[@]}" | sed 's/=.*$/-/' | tr '\n' ' ' | xargs)
+
+    local label_add; label_add=$(printf '%s\n' "${vs_labels[@]}" | tr '\n' ' ' | xargs)
 
     verbose "label_add=${label_add}"
 
@@ -308,7 +305,7 @@ vs_delete() {
     kubectl get volumesnapshot "$vs_name" -n "$ns" --show-labels
 
     # Get the VolumeSnapshotContent name referenced by the VolumeSnapshot
-    vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
+    local vsc_name; vsc_name=$(kubectl get volumesnapshot "$vs_name" -n "$ns" -o jsonpath='{.status.boundVolumeSnapshotContentName}')
 
     if [ "$vsc_name" == "" ]; then
         fatal "volumeSnapshot vs_name='$vs_name' in ns='$ns' not found or does not have a boundVolumeSnapshotContentName."
@@ -322,6 +319,6 @@ vs_delete() {
     warn "Deleting VolumeSnapshot vs_name='${vs_name}' in ns='${ns}'..."
     kubectl -n "$ns" delete volumesnapshot "$vs_name"
 
-    kubectl get volumesnapshot "$vs_name" -n "$ns" || true
-    kubectl get volumesnapshotcontent "$vsc_name" || true
+    # kubectl get volumesnapshot "$vs_name" -n "$ns" || true
+    # kubectl get volumesnapshotcontent "$vsc_name" || true
 }

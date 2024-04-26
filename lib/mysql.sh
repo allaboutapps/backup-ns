@@ -57,8 +57,7 @@ mysql_backup() {
     local dump_file=$8
     local dry_run=$9
 
-    local dump_dir
-    dump_dir=$(dirname "$dump_file")
+    local dump_dir; dump_dir=$(dirname "$dump_file")
 
     log "creating dump inside ns='${ns}' resource='${resource}' container='${container}' mysql_host='${mysql_host}' mysql_db='${mysql_db}' mysql_user='${mysql_user}' dumpfile='${dump_file}' dry_run='${dry_run}'..."
     

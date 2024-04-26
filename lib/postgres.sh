@@ -49,8 +49,7 @@ postgres_backup() {
     local dump_file=$7
     local dry_run=$8
 
-    local dump_dir
-    dump_dir=$(dirname "$dump_file")
+    local dump_dir; dump_dir=$(dirname "$dump_file")
 
     log "creating dump inside ns='${ns}' resource='${resource}' container='${container}' pg_db='${pg_db}' pg_user='${pg_user}' dumpfile='${dump_file}' dry_run='${dry_run}'..."
     
