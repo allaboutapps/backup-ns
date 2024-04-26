@@ -19,56 +19,6 @@ RETAIN_LAST_MONTHLY="${RETAIN_LAST_MONTHLY:="12"}"
 
 FAILS=$((0))
 
-# functions
-# ------------------------------
-
-vs_apply_retain_policy() {
-
-    local ns=$1
-    local pvc_label=$2 # e.g. backup-ns.sh/pvc=data
-    local retain_label=$3 # e.g. backup-ns.sh/daily
-    local retain_count=$4 # e.g. 7
-    local dry_run=$5
-
-    log "processing namespace='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' retain_count='${retain_count}'..."
-
-    # we keep the last $retain_count daily snapshots, let's get all current volumesnapshots with the label "$retain_label" sorted by latest asc
-    sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l"$retain_label","$pvc_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
-    snapshots_retained=$(echo "$sorted_snapshots" | head -n "$retain_count")
-    snapshot_kept_count=$(echo "$snapshots_retained" | wc -l | xargs)
-
-    snapshots_to_unlabel=$(sort <(echo "$sorted_snapshots" | sort) <(echo "$snapshots_retained" | sort) | uniq -u)
-
-    verbose "namespace='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - we will keep it ${snapshot_kept_count}/${retain_count}:"
-    verbose "$snapshots_retained"
-
-    if [ "$snapshots_to_unlabel" != "" ]; then
-
-        log "namespace='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - we will remove it from:"
-        verbose "$snapshots_to_unlabel"
-
-        while IFS= read -r vs_name; do
-            warn "namespace='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - unlabeling '${vs_name}' in ns='${ns}'..."
-
-            cmd="kubectl label -n $ns vs/${vs_name} ${retain_label}-"
-
-            # dry-run mode? bail out early!
-            if [ "$dry_run" == "true" ]; then
-                warn "skipping - dry-run mode is active, cmd='${cmd}'"
-                continue
-            fi
-
-            if ! eval "$cmd"; then
-                ((FAILS+=1))
-                err "fail#${FAILS} unlabeling failed for vs_name='${vs_name}' in ns='${ns}'."
-            fi
-        done <<< "$snapshots_to_unlabel"
-    fi
-
-}
-
-# TODO backup-ns.sh/retain label config is not actually parsed
-
 # main
 # ------------------------------
 
@@ -92,10 +42,21 @@ function main() {
         # verbose "$source_disks"
 
         while IFS= read -r source_disk; do
+            
+            if ! vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/daily" "$RETAIN_LAST_DAILY" "$RETAIN_DRY_RUN"; then
+                err "err apply daily retention policy ns='${ns}' backup-ns.sh/pvc=${source_disk}"
+                ((FAILS+=1))
+            fi
 
-            vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/daily" "$RETAIN_LAST_DAILY" "$RETAIN_DRY_RUN"
-            vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/weekly" "$RETAIN_LAST_WEEKLY" "$RETAIN_DRY_RUN"
-            vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/monthly" "$RETAIN_LAST_MONTHLY" "$RETAIN_DRY_RUN"
+            if ! vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/weekly" "$RETAIN_LAST_WEEKLY" "$RETAIN_DRY_RUN"; then
+                err "err apply weekly retention policy ns='${ns}' backup-ns.sh/pvc=${source_disk}"
+                ((FAILS+=1))
+            fi
+
+            if ! vs_apply_retain_policy "$ns" "backup-ns.sh/pvc=${source_disk}" "backup-ns.sh/monthly" "$RETAIN_LAST_MONTHLY" "$RETAIN_DRY_RUN"; then
+                err "err apply monthly retention policy ns='${ns}' backup-ns.sh/pvc=${source_disk}"
+                ((FAILS+=1))
+            fi
 
         done <<< "$source_disks"
 

@@ -50,6 +50,9 @@ function main() {
             kubectl label -n "$vs_namespace" vs/"$vs_name" "backup-ns.sh/delete-after=${marked_date}"
             kubectl get vs "$vs_name" -n "$vs_namespace" -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after
 
+            # do not race through
+            sleep 0.5
+
         done <<< "$snapshots_to_mark"
     fi
 
@@ -73,14 +76,14 @@ function main() {
             local vs_namespace
             vs_namespace=$(echo "$line" | awk '{print $2}')
 
-            log "deleting vs_name='${vs_name}' in ns='${vs_namespace}'..."
+            warn "deleting vs_name='${vs_name}' in ns='${vs_namespace}'..."
             kubectl get vs "$vs_name" -n "$vs_namespace" -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after
 
             vs_delete "$vs_namespace" "$vs_name"
 
             # we are doing quite destructive operations, so lets sleep a bit until we do the new delete!
-            log "delete successfully - sleeping 60s until continuing..."
-            sleep 60
+            log "deleted vs_name='${vs_name}' in ns='${vs_namespace}'!"
+            sleep 5
 
         done <<< "$snapshots_to_delete"
     fi

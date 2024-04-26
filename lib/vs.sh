@@ -105,6 +105,57 @@ spec:
 EOF
 }
 
+# TODO backup-ns.sh/retain label config is not actually parsed
+vs_apply_retain_policy() {
+
+    local ns=$1
+    local pvc_label=$2 # e.g. backup-ns.sh/pvc=data
+    local retain_label=$3 # e.g. backup-ns.sh/daily or backup-ns.sh/weekly or backup-ns.sh/monthly
+    local retain_count=$4 # e.g. 7
+    local dry_run=$5
+
+    local fails
+    fails=$((0))
+
+    log "processing ns='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' retain_count='${retain_count}'..."
+
+    # we keep the last $retain_count daily snapshots, let's get all current volumesnapshots with the label "$retain_label" sorted by latest asc
+    sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l"$retain_label","$pvc_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
+    snapshots_retained=$(echo "$sorted_snapshots" | head -n "$retain_count")
+    snapshot_kept_count=$(echo "$snapshots_retained" | wc -l | xargs)
+
+    snapshots_to_unlabel=$(sort <(echo "$sorted_snapshots" | sort) <(echo "$snapshots_retained" | sort) | uniq -u)
+
+    verbose "ns='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - we will keep it ${snapshot_kept_count}/${retain_count}:"
+    verbose "$snapshots_retained"
+
+    if [ "$snapshots_to_unlabel" != "" ]; then
+
+        verbose "ns='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - we will remove it from:"
+        verbose "$snapshots_to_unlabel"
+
+        while IFS= read -r vs_name; do
+            warn "ns='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' - unlabeling '${vs_name}' in ns='${ns}'..."
+
+            cmd="kubectl label -n $ns vs/${vs_name} ${retain_label}-"
+
+            # dry-run mode? bail out early!
+            if [ "$dry_run" == "true" ]; then
+                warn "skipping - dry-run mode is active, cmd='${cmd}'"
+                continue
+            fi
+
+            if ! eval "$cmd"; then
+                ((fails+=1))
+                err "unlabeling failed for vs_name='${vs_name}' pvc_label='${pvc_label} in ns='${ns}'."
+            fi
+        done <<< "$snapshots_to_unlabel"
+    fi
+
+    if [ "$fails" -gt 0 ]; then
+        return 1
+    fi
+}
 
 vs_create() {
     local ns=$1
