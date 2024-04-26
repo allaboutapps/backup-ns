@@ -21,7 +21,7 @@ BAK_PVC_NAME="${BAK_PVC_NAME:="data"}"
 # BAK_VS_RAND: a random string to make the volume snapshot name unique (apart from the timestamp), fallback to nanoseconds
 BAK_VS_RAND="${BAK_VS_RAND:=$( (shuf -er -n6 {a..z} {0..9} | tr -d '\n') || date +"%6N")}"
 
-# BAK_LABEL_VS_TYPE: "type" label value of volume snapshot (e.g. "adhoc" or custom backups, "scheduled" for recurring, etc.)
+# BAK_LABEL_VS_TYPE: "type" label value of volume snapshot (e.g. "adhoc" or custom backups, "cronjob" for recurring, etc.)
 BAK_LABEL_VS_TYPE="${BAK_LABEL_VS_TYPE:="adhoc"}"
 
 # BAK_LABEL_VS_POD: "pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)

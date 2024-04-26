@@ -150,18 +150,7 @@ function main() {
 
     # setup k8s volume snapshot labels
     local vs_labels
-    vs_labels=$(
-    cat <<EOF
-backup-ns.sh/pvc: "${BAK_PVC_NAME}"
-backup-ns.sh/type: "${BAK_LABEL_VS_TYPE}"
-EOF
-)
-
-    # dynamically set backup-ns.sh/pod label
-    if [ "$BAK_LABEL_VS_POD" != "" ]; then
-        vs_labels="${vs_labels}
-backup-ns.sh/pod: \"${BAK_LABEL_VS_POD}\""
-    fi
+    vs_labels=$(vs_get_default_labels "$BAK_PVC_NAME" "$BAK_LABEL_VS_TYPE" "$BAK_LABEL_VS_POD")
 
     # dynamically set retain labels
     local vs_retain_labels

@@ -8,6 +8,28 @@ set -Eeo pipefail
 # functions
 # ------------------------------
 
+vs_get_default_labels() {
+    local pvc=$1 # name of the PVC that the volume snapshot is taken from
+    local type=$2 # e.g. "adhoc" or "cronjob"
+    local pod=$3 # might be empty string
+
+    local labels
+    labels=$(
+    cat <<EOF
+backup-ns.sh/pvc: "${pvc}"
+backup-ns.sh/type: "${type}"
+EOF
+)
+
+    # dynamically set backup-ns.sh/pod label
+    if [ "$pod" != "" ]; then
+        labels="${labels}
+backup-ns.sh/pod: \"${pod}\""
+    fi
+
+    echo "$labels"
+}
+
 # Retention related labeling. We directly flag the first daily, weekly, monthly snapshot.
 # A (separate) retention worker can then use these labels to determine if a cleanup of this snapshot should happen.
 #
