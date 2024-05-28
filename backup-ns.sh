@@ -121,10 +121,16 @@ function main() {
     local vs_labels; vs_labels=$(vs_get_default_labels "$BAK_PVC_NAME" "$BAK_LABEL_VS_TYPE" "$BAK_LABEL_VS_POD")
 
     # dynamically set retain labels
-    local vs_retain_labels; vs_retain_labels=$(vs_get_retain_labels "$BAK_NAMESPACE")
-    if [ "$vs_retain_labels" != "" ]; then
+    if [ "$BAK_LABEL_VS_RETAIN" == "daily_weekly_monthly" ]; then
+        local vs_retain_labels; vs_retain_labels=$(vs_get_retain_labels_daily_weekly_monthly "$BAK_NAMESPACE")
         vs_labels="${vs_labels}
 ${vs_retain_labels}"
+    elif [ "$BAK_LABEL_VS_RETAIN" == "days" ]; then
+        local vs_retain_labels; vs_retain_labels=$(vs_get_retain_labels_delete_after_days "${BAK_LABEL_VS_RETAIN_DAYS}")
+        vs_labels="${vs_labels}
+${vs_retain_labels}"
+    else
+        fatal "unsupported BAK_LABEL_VS_RETAIN='${BAK_LABEL_VS_RETAIN}'"
     fi
 
     # setup k8s volume snapshot annotations

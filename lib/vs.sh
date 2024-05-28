@@ -44,7 +44,7 @@ backup-ns.sh/pod: \"${pod}\""
 # We simply try to kubectl get a prefixing snapshot with the same label and if it does not exist, we set the label on the new snapshot.
 # This way we can ensure that the first snapshot of a day, week, month is always flagged.
 # The assumption here is that the backup procedure is run at least once a day.
-vs_get_retain_labels() {
+vs_get_retain_labels_daily_weekly_monthly() {
     local ns=$1
 
     # Note that even tough using printf for formatting dates might be a best practise (https://stackoverflow.com/questions/1401482/yyyy-mm-dd-format-date-in-shell-script)
@@ -58,7 +58,6 @@ vs_get_retain_labels() {
 
     local labels=""
 
-    # TODO allow to configure the applied labels via env vars
     read -r -d '' labels << EOF
 backup-ns.sh/retain: "daily_weekly_monthly"
 EOF
@@ -90,6 +89,23 @@ ${labels}
 backup-ns.sh/monthly: "${monthly_label}"
 EOF
     fi
+
+    echo "$labels"
+}
+
+vs_get_retain_labels_delete_after_days() {
+    local date_add=$1 # must be a numer, e.g. "30" - for 30 days
+
+    # support for osx via eval (after gdate)
+    local delete_after_label; delete_after_label=$(date -d "+${date_add} days" +"%Y-%m-%d" || eval "date -v +${date_add}d +'%Y-%m-%d'")
+
+    local labels=""
+
+    read -r -d '' labels << EOF
+backup-ns.sh/retain: "days"
+backup-ns.sh/retain-days: "${date_add}"
+backup-ns.sh/delete-after: "${delete_after_label}"
+EOF
 
     echo "$labels"
 }
@@ -213,9 +229,6 @@ vs_create() {
     kubectl -n "$ns" get volumesnapshot/"$vs_name"
 
     # TODO: supply additional checks to ensure the snapshot is actually ready and useable?
-
-    # TODO: we should also annotate the created VSC - but not within this script (RBAC, only require access to VS)
-    # instead move that to the retention worker, which must operate on VSCs anyways.
 }
 
 vs_sync_labels_to_vsc() {

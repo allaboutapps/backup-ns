@@ -24,7 +24,8 @@ function main() {
     utils_check_host_requirements "false" "true" # 2nd true checks jq is available
 
     # ---
-    # first mark...
+    # first mark all backup-ns.sh/retain=daily_weekly_monthly vs that no longer have !backup-ns.sh/daily,!backup-ns.sh/weekly,!backup-ns.sh/monthly keys set
+    # these vs will be marked for deletion with backup-ns.sh/delete-after set to today
     # ---
 
     local mark_query; mark_query="backup-ns.sh/retain=daily_weekly_monthly,!backup-ns.sh/daily,!backup-ns.sh/weekly,!backup-ns.sh/monthly,!backup-ns.sh/delete-after"
@@ -58,14 +59,21 @@ function main() {
     fi
 
     # ---
-    # then delete all vs that were not marked **today**
+    # then delete all vs that have a backup-ns.sh/delete-after set BEFORE today
+    # Attention: this works on any backup-ns.sh/retain marked vs with that key!
     # ---
 
-    local delete_query; delete_query="backup-ns.sh/retain=daily_weekly_monthly,backup-ns.sh/delete-after,backup-ns.sh/delete-after!=${marked_date}"
+    local delete_query; delete_query="backup-ns.sh/retain,backup-ns.sh/delete-after"
     log "querying for volumesnapshots to mark for deletion with delete_query='${delete_query}'..."
 
-    local snapshots_to_delete; snapshots_to_delete=$(kubectl get vs --all-namespaces -l"$delete_query" -o=jsonpath='{range .items[*]}{.metadata.name} {.metadata.namespace}{"\n"}{end}')
-    kubectl get vs --all-namespaces -l"$delete_query" -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after
+    # kubectl get vs --all-namespaces -l"$delete_query" -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after
+    local snapshots_to_delete; snapshots_to_delete=$(kubectl get vs --all-namespaces -l"$delete_query" --template '{{range .items}}{{index .metadata.name -}}{{" "}}{{index .metadata.namespace -}}{{" "}}{{index .metadata.labels "backup-ns.sh/delete-after" -}}{{"\n"}}{{end}}')
+
+    # we need another pass to filter out the vs that are already marked for deletion in the future (backup-ns.sh/delete-after is already set for adhoc backups)
+    # 3rd column is the date formatted as YYYY-MM-DD)
+    snapshots_to_delete=$(echo "$snapshots_to_delete" | awk -v date="$marked_date" '$3 < date {print $1" "$2" "$3}')
+
+    verbose "$snapshots_to_delete"
 
     if [ "$snapshots_to_delete" == "" ]; then
         log "no volumesnapshots found to delete."

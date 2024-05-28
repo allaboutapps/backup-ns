@@ -15,17 +15,25 @@ BAK_DEBUG="${BAK_DEBUG:="false"}"
 # BAK_NAMESPACE: the target namespace to backup
 BAK_NAMESPACE="${BAK_NAMESPACE:=$( (kubectl config view --minify | grep namespace | cut -d" " -f6) || echo "default")}"
 
-# BAK_PVC_NAME: the name of the PVC to backup
+# BAK_PVC_NAME: the name of the PVC to backup, the vs will also be labeled via the key "backup-ns.sh/pvc"
 BAK_PVC_NAME="${BAK_PVC_NAME:="data"}"
 
 # BAK_VS_RAND: a random string to make the volume snapshot name unique (apart from the timestamp), fallback to nanoseconds
 BAK_VS_RAND="${BAK_VS_RAND:=$( (shuf -er -n6 {a..z} {0..9} | tr -d '\n') || date +"%6N")}"
 
-# BAK_LABEL_VS_TYPE: "type" label value of volume snapshot (e.g. "adhoc" or custom backups, "cronjob" for recurring, etc.)
+# BAK_LABEL_VS_TYPE: "backup-ns.sh/type" label value of volume snapshot (e.g. "adhoc" or custom backups, "cronjob" for recurring, etc.). This label is not used for any further selections and ony for informational purposes.
 BAK_LABEL_VS_TYPE="${BAK_LABEL_VS_TYPE:="adhoc"}"
 
-# BAK_LABEL_VS_POD: "pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)
+# BAK_LABEL_VS_POD: "backup-ns.sh/pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)
 BAK_LABEL_VS_POD="${BAK_LABEL_VS_POD:=""}"
+
+# BAK_LABEL_VS_RETAIN: "backup-ns.sh/retain" label value. Currently the only supported values are:
+# "daily_weekly_monthly": keep as long as these label keys (key "backup-ns.sh/daily|weekly|monthly") are available on the vs
+# "days": keep the vs for as long as the label value within key "backup-ns.sh/delete-after" says (YYYY-MM-DD) - defaults to +30 days
+BAK_LABEL_VS_RETAIN="${BAK_LABEL_VS_RETAIN:="daily_weekly_monthly"}"
+
+# BAK_LABEL_VS_RETAIN_DAYS: the number of days to retain the snapshot if BAK_LABEL_VS_RETAIN is set to "days"
+BAK_LABEL_VS_RETAIN_DAYS="${BAK_LABEL_VS_RETAIN_DAYS:="30"}"
 
 # BAK_VS_NAME_TEMPLATE: the name of the volume snapshot can be templated (will be evaluated after having the flock lock, if enabled)
 BAK_VS_NAME_TEMPLATE="${BAK_VS_NAME_TEMPLATE:="\${BAK_PVC_NAME}-\$(date +\"%Y-%m-%d-%H%M%S\")-\${BAK_VS_RAND}"}"
