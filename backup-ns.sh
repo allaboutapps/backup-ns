@@ -126,7 +126,7 @@ function main() {
         vs_labels="${vs_labels}
 ${vs_retain_labels}"
     elif [ "$BAK_LABEL_VS_RETAIN" == "days" ]; then
-        local vs_retain_labels; vs_retain_labels=$(vs_get_retain_labels_delete_after_days "${BAK_LABEL_VS_RETAIN_DAYS}")
+        local vs_retain_labels; vs_retain_labels=$(vs_get_retain_labels_delete_after_days "$BAK_LABEL_VS_RETAIN_DAYS")
         vs_labels="${vs_labels}
 ${vs_retain_labels}"
     else
