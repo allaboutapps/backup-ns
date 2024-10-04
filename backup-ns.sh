@@ -77,6 +77,8 @@ function main() {
         flock_lock "$lock_file" "$BAK_FLOCK_TIMEOUT_SEC" "$BAK_DRY_RUN"
     fi
 
+    # TODO TIMESTAMP + annotate the vs after application aware steps are finished!
+
     # set volume snapshot name by evaluating the template (after we acquired the lock)
     vs_name=$(eval "echo ${BAK_VS_NAME_TEMPLATE}")
     log "vs_name='${vs_name}'"
