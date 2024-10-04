@@ -2,14 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -64,6 +67,14 @@ func main() {
 
 	if !config.DBPostgres && !config.DBMySQL && !config.DBSkip {
 		log.Fatal("Either DBPostgres=true or DBMySQL=true or DBSkip=true must be set.")
+	}
+
+	if config.Flock {
+		lockFile := flockShuffleLockFile(config.FlockDir, config.FlockCount)
+		log.Printf("Using lock_file='%s'...", lockFile)
+
+		unlock := flockLock(lockFile, config.FlockTimeoutSec, config.DryRun)
+		defer unlock()
 	}
 
 	vsName := generateVSName(config)
@@ -206,6 +217,42 @@ func generateVSName(config Config) string {
 	vsName = strings.ReplaceAll(vsName, "${BAK_VS_RAND}", config.VSRand)
 	vsName = strings.ReplaceAll(vsName, "$(date +\"%Y-%m-%d-%H%M%S\")", time.Now().Format("2006-01-02-150405"))
 	return vsName
+}
+
+func flockShuffleLockFile(dir string, count int) string {
+	rand.Seed(time.Now().UnixNano())
+	return filepath.Join(dir, fmt.Sprintf("%d.lock", rand.Intn(count)+1))
+}
+
+func flockLock(lockFile string, timeoutSec int, dryRun bool) func() {
+	if dryRun {
+		log.Println("Skipping flock - dry run mode is active")
+		return func() {}
+	}
+
+	lockFd, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open lock file: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+
+	err = syscall.Flock(int(lockFd.Fd()), syscall.LOCK_EX)
+	if err != nil {
+		log.Fatalf("Failed to acquire lock: %v", err)
+	}
+
+	log.Printf("Got lock on '%s'!", lockFile)
+
+	return func() {
+		err := syscall.Flock(int(lockFd.Fd()), syscall.LOCK_UN)
+		if err != nil {
+			log.Printf("Warning: Failed to release lock: %v", err)
+		}
+		lockFd.Close()
+		log.Printf("Released lock from '%s'", lockFile)
+	}
 }
 
 func ensurePVCAvailable(config Config) {
