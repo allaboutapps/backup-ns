@@ -321,14 +321,33 @@ func backupPostgres(config Config) {
 		return
 	}
 	log.Printf("Backing up Postgres database '%s' in namespace '%s'...", config.DBPostgresDB, config.Namespace)
+	
+	script := fmt.Sprintf(`
+		set -Eeox pipefail
+		
+		export PGPASSWORD=%s
+		
+		trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f %s && df -h %s; exit $exit_code' EXIT
+		
+		pg_dump --username=%s --format=p --clean --if-exists %s | gzip -c > %s
+		
+		ls -lha %s
+		
+		[ -s %s ] || exit 1
+		
+		df -h %s
+	`, config.DBPostgresPassword, config.DBPostgresDumpFile, filepath.Dir(config.DBPostgresDumpFile),
+		config.DBPostgresUser, config.DBPostgresDB, config.DBPostgresDumpFile,
+		config.DBPostgresDumpFile, config.DBPostgresDumpFile, filepath.Dir(config.DBPostgresDumpFile))
+
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBPostgresExecResource, "-c", config.DBPostgresExecContainer, "--",
-		"sh", "-c", fmt.Sprintf("PGPASSWORD=%s pg_dump --username=%s --format=p --clean --if-exists %s | gzip > %s",
-			config.DBPostgresPassword, config.DBPostgresUser, config.DBPostgresDB, config.DBPostgresDumpFile))
-	err := cmd.Run()
+	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBPostgresExecResource, "-c", config.DBPostgresExecContainer, "--", "bash", "-c", script)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Fatalf("Error backing up Postgres: %v", err)
+		log.Printf("Error backing up Postgres: %v\nOutput: %s", err, string(output))
+		log.Fatal("Postgres backup failed")
 	}
+	log.Printf("Postgres backup completed. Output:\n%s", string(output))
 }
 
 func backupMySQL(config Config) {
@@ -337,14 +356,33 @@ func backupMySQL(config Config) {
 		return
 	}
 	log.Printf("Backing up MySQL database '%s' in namespace '%s'...", config.DBMySQLDB, config.Namespace)
+	
+	script := fmt.Sprintf(`
+		set -Eeox pipefail
+		
+		export MYSQL_PWD=%s
+		
+		trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f %s && df -h %s; exit $exit_code' EXIT
+		
+		mysqldump --host=%s --user=%s --default-character-set=utf8 --add-locks --set-charset --compact --create-options --add-drop-table --lock-tables %s | gzip -c > %s
+		
+		ls -lha %s
+		
+		[ -s %s ] || exit 1
+		
+		df -h %s
+	`, config.DBMySQLPassword, config.DBMySQLDumpFile, filepath.Dir(config.DBMySQLDumpFile),
+		config.DBMySQLHost, config.DBMySQLUser, config.DBMySQLDB, config.DBMySQLDumpFile,
+		config.DBMySQLDumpFile, config.DBMySQLDumpFile, filepath.Dir(config.DBMySQLDumpFile))
+
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBMySQLExecResource, "-c", config.DBMySQLExecContainer, "--",
-		"sh", "-c", fmt.Sprintf("mysqldump --host=%s --user=%s --password=%s --default-character-set=utf8 --add-locks --set-charset --compact --create-options --add-drop-table --lock-tables %s | gzip > %s",
-			config.DBMySQLHost, config.DBMySQLUser, config.DBMySQLPassword, config.DBMySQLDB, config.DBMySQLDumpFile))
-	err := cmd.Run()
+	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBMySQLExecResource, "-c", config.DBMySQLExecContainer, "--", "bash", "-c", script)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Fatalf("Error backing up MySQL: %v", err)
+		log.Printf("Error backing up MySQL: %v\nOutput: %s", err, string(output))
+		log.Fatal("MySQL backup failed")
 	}
+	log.Printf("MySQL backup completed. Output:\n%s", string(output))
 }
 
 func generateVSLabels(config Config) map[string]string {
