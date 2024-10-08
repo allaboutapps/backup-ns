@@ -272,12 +272,30 @@ func ensurePVCAvailable(config Config) {
 
 func ensurePostgresAvailable(config Config) {
 	log.Printf("Checking if Postgres is available in namespace '%s'...", config.Namespace)
+
+	script := fmt.Sprintf(`
+		# inject default PGPASSWORD into current env (before cmds are visible in logs)
+		export PGPASSWORD=%s
+		
+		set -Eeox pipefail
+
+		# check clis are available
+		command -v gzip
+		psql --version
+		pg_dump --version
+
+		# check db is accessible
+		psql --username=%s %s -c "SELECT 1;" >/dev/null
+	`, config.DBPostgresPassword, config.DBPostgresUser, config.DBPostgresDB)
+
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBPostgresExecResource, "-c", config.DBPostgresExecContainer, "--", "psql", "--version")
-	err := cmd.Run()
+	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBPostgresExecResource, "-c", config.DBPostgresExecContainer, "--", "bash", "-c", script)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Fatalf("Postgres not available in namespace '%s': %v", config.Namespace, err)
+		log.Printf("Error checking Postgres availability: %v\nOutput: %s", err, string(output))
+		log.Fatalf("Postgres not available in namespace '%s'", config.Namespace)
 	}
+	log.Printf("Postgres is available in namespace '%s'", config.Namespace)
 }
 
 func ensureMySQLAvailable(config Config) {
