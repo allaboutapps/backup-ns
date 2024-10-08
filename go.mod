@@ -1,3 +1,3 @@
-module github.com/majodev/go-docker-vscode
+module github.com/allaboutapps/backup-ns
 
 go 1.23

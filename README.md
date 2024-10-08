@@ -1,17 +1,13 @@
-# go-docker-vscode
+# backup-ns
 
-Template for working with Go in Docker via [VSCode remote containers](https://code.visualstudio.com/docs/remote/containers).
+k8s application-aware snapshots.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/majodev/go-docker-vscode/blob/master/LICENSE)
-[![Build and Test](https://github.com/majodev/go-docker-vscode/actions/workflows/build-test.yml/badge.svg)](https://github.com/majodev/go-docker-vscode/actions)
 
-![go starter overview](https://public.allaboutapps.at/go-starter-wiki/go-starter-main-overview.png)
-
-Extracted from [allaboutapps/go-starter](https://github.com/allaboutapps/go-starter).
+> Note that the README is WIP!
 
 **ToC**:
 
-- [go-docker-vscode](#go-docker-vscode)
+- [backup-ns](#backup-ns)
     - [Requirements](#requirements)
     - [Quickstart](#quickstart)
     - [Visual Studio Code](#visual-studio-code)
@@ -98,7 +94,6 @@ Simply run `./docker-helper --destroy` in your working directory (on your host m
 ## Maintainers
 
 - [Mario Ranftl - @majodev](https://github.com/majodev)
-
 
 ## License
 

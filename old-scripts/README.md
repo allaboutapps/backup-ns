@@ -1,5 +1,7 @@
 # backup-ns.sh
 
+> NOTE: This is the previous bash reference implementation the is fully replace by the go implementation in the parent directory.
+
 k8s application-aware snapshots.
 
 
@@ -14,6 +16,22 @@ make
 
 
 ### Deployment
+
+We require a VolumeSnapshotClass to be present in the cluster:
+```yaml
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: a3cloud-csi-gce-pd
+  # annotations:
+  #   snapshot.storage.kubernetes.io/is-default-class: "true"
+driver: pd.csi.storage.gke.io
+parameters:
+  storage-locations: europe-west3
+# The retain controller automatically patches VolmeSnapshotContents that are "released" with the Delete deletionPolicy.
+# However, normally you should always run with "Retain" to ensure that an (accidental) namespace delete does not delete the actual disk snapshot. 
+deletionPolicy: Retain
+```
 
 `backup-ns.sh` requires the following ClusterRole as a base:
 ```yaml

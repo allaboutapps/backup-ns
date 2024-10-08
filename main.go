@@ -121,7 +121,7 @@ func loadConfig() Config {
 		LabelVSRetain:             getEnv("BAK_LABEL_VS_RETAIN", "daily_weekly_monthly"),
 		LabelVSRetainDays:         getIntEnv("BAK_LABEL_VS_RETAIN_DAYS", 30),
 		VSNameTemplate:            getEnv("BAK_VS_NAME_TEMPLATE", "${BAK_PVC_NAME}-$(date +\"%Y-%m-%d-%H%M%S\")-${BAK_VS_RAND}"),
-		VSClassName:               getEnv("BAK_VS_CLASS_NAME", "a3cloud-csi-gce-pd"),
+		VSClassName:               getEnv("BAK_VS_CLASS_NAME", "a3cloud-csi-gce-pd"), // should have "Retain" deletion policy!
 		VSWaitUntilReady:          getBoolEnv("BAK_VS_WAIT_UNTIL_READY", true),
 		VSWaitUntilReadyTimeout:   getEnv("BAK_VS_WAIT_UNTIL_READY_TIMEOUT", "15m"),
 		ThresholdSpaceUsedPercent: getIntEnv("BAK_THRESHOLD_SPACE_USED_PERCENTAGE", 90),
