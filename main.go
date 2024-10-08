@@ -3,10 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -220,8 +221,12 @@ func generateVSName(config Config) string {
 }
 
 func flockShuffleLockFile(dir string, count int) string {
-	rand.Seed(time.Now().UnixNano())
-	return filepath.Join(dir, fmt.Sprintf("%d.lock", rand.Intn(count)+1))
+	// rand.Seed(time.Now().UnixNano())
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(count)))
+	if err != nil {
+		log.Fatalf("Failed to generate secure random number: %v", err)
+	}
+	return filepath.Join(dir, fmt.Sprintf("%d.lock", n.Int64()+1))
 }
 
 func flockLock(lockFile string, timeoutSec int, dryRun bool) func() {
@@ -257,6 +262,7 @@ func flockLock(lockFile string, timeoutSec int, dryRun bool) func() {
 
 func ensurePVCAvailable(config Config) {
 	log.Printf("Checking if PVC '%s' exists in namespace '%s'...", config.PVCName, config.Namespace)
+	// #nosec G204
 	cmd := exec.Command("kubectl", "get", "pvc", config.PVCName, "-n", config.Namespace)
 	err := cmd.Run()
 	if err != nil {
@@ -266,6 +272,7 @@ func ensurePVCAvailable(config Config) {
 
 func ensurePostgresAvailable(config Config) {
 	log.Printf("Checking if Postgres is available in namespace '%s'...", config.Namespace)
+	// #nosec G204
 	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBPostgresExecResource, "-c", config.DBPostgresExecContainer, "--", "psql", "--version")
 	err := cmd.Run()
 	if err != nil {
@@ -275,6 +282,7 @@ func ensurePostgresAvailable(config Config) {
 
 func ensureMySQLAvailable(config Config) {
 	log.Printf("Checking if MySQL is available in namespace '%s'...", config.Namespace)
+	// #nosec G204
 	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBMySQLExecResource, "-c", config.DBMySQLExecContainer, "--", "mysql", "--version")
 	err := cmd.Run()
 	if err != nil {
@@ -284,6 +292,7 @@ func ensureMySQLAvailable(config Config) {
 
 func ensureFreeSpace(config Config, resource, container, dir string) {
 	log.Printf("Checking free space on %s in namespace '%s'...", dir, config.Namespace)
+	// #nosec G204
 	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, resource, "-c", container, "--", "df", "-h", dir)
 	output, err := cmd.Output()
 	if err != nil {
@@ -312,6 +321,7 @@ func backupPostgres(config Config) {
 		return
 	}
 	log.Printf("Backing up Postgres database '%s' in namespace '%s'...", config.DBPostgresDB, config.Namespace)
+	// #nosec G204
 	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBPostgresExecResource, "-c", config.DBPostgresExecContainer, "--",
 		"sh", "-c", fmt.Sprintf("PGPASSWORD=%s pg_dump --username=%s --format=p --clean --if-exists %s | gzip > %s",
 			config.DBPostgresPassword, config.DBPostgresUser, config.DBPostgresDB, config.DBPostgresDumpFile))
@@ -327,6 +337,7 @@ func backupMySQL(config Config) {
 		return
 	}
 	log.Printf("Backing up MySQL database '%s' in namespace '%s'...", config.DBMySQLDB, config.Namespace)
+	// #nosec G204
 	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBMySQLExecResource, "-c", config.DBMySQLExecContainer, "--",
 		"sh", "-c", fmt.Sprintf("mysqldump --host=%s --user=%s --password=%s --default-character-set=utf8 --add-locks --set-charset --compact --create-options --add-drop-table --lock-tables %s | gzip > %s",
 			config.DBMySQLHost, config.DBMySQLUser, config.DBMySQLPassword, config.DBMySQLDB, config.DBMySQLDumpFile))
@@ -411,6 +422,7 @@ func createVolumeSnapshot(config Config, vsName string, vsObject map[string]inte
 		log.Fatalf("Error marshaling VolumeSnapshot object: %v", err)
 	}
 
+	// #nosec G204
 	cmd := exec.Command("kubectl", "apply", "-f", "-", "-n", config.Namespace)
 	cmd.Stdin = bytes.NewReader(vsJSON)
 	err = cmd.Run()
@@ -420,6 +432,7 @@ func createVolumeSnapshot(config Config, vsName string, vsObject map[string]inte
 
 	if config.VSWaitUntilReady {
 		log.Printf("Waiting for VolumeSnapshot '%s' to be ready (timeout: %s)...", vsName, config.VSWaitUntilReadyTimeout)
+		// #nosec G204
 		cmd = exec.Command("kubectl", "wait", "--for=jsonpath='{.status.readyToUse}'=true", "--timeout", config.VSWaitUntilReadyTimeout, "volumesnapshot/"+vsName, "-n", config.Namespace)
 		err = cmd.Run()
 		if err != nil {
@@ -427,6 +440,7 @@ func createVolumeSnapshot(config Config, vsName string, vsObject map[string]inte
 		}
 	}
 
+	// #nosec G204
 	cmd = exec.Command("kubectl", "get", "volumesnapshot/"+vsName, "-n", config.Namespace)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

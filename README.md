@@ -1,173 +1,105 @@
-# backup-ns.sh
+# go-docker-vscode
 
-k8s application-aware snapshots.
+Template for working with Go in Docker via [VSCode remote containers](https://code.visualstudio.com/docs/remote/containers).
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/majodev/go-docker-vscode/blob/master/LICENSE)
+[![Build and Test](https://github.com/majodev/go-docker-vscode/actions/workflows/build-test.yml/badge.svg)](https://github.com/majodev/go-docker-vscode/actions)
 
-### Development
+![go starter overview](https://public.allaboutapps.at/go-starter-wiki/go-starter-main-overview.png)
+
+Extracted from [allaboutapps/go-starter](https://github.com/allaboutapps/go-starter).
+
+**ToC**:
+
+- [go-docker-vscode](#go-docker-vscode)
+    - [Requirements](#requirements)
+    - [Quickstart](#quickstart)
+    - [Visual Studio Code](#visual-studio-code)
+    - [Building and testing](#building-and-testing)
+    - [Uninstall](#uninstall)
+  - [Maintainers](#maintainers)
+  - [License](#license)
+
+### Requirements
+
+Requires the following local setup for development:
+
+- [Docker CE](https://docs.docker.com/install/) (19.03 or above)
+- [Docker Compose](https://docs.docker.com/compose/install/) (1.25 or above)
+- [VSCode Extension: Remote - Containers](https://code.visualstudio.com/docs/remote/containers) (`ms-vscode-remote.remote-containers`)
+
+This project makes use of the [Remote - Containers extension](https://code.visualstudio.com/docs/remote/containers) provided by [Visual Studio Code](https://code.visualstudio.com/). A local installation of the Go tool-chain is **no longer required** when using this setup.
+
+Please refer to the [official installation guide](https://code.visualstudio.com/docs/remote/containers) how this works for your host OS and head to our [FAQ: How does our VSCode setup work?](https://github.com/allaboutapps/go-starter/wiki/FAQ#how-does-our-vscode-setup-work) if you encounter issues.
+
+### Quickstart
+
+Create a new git repository through the GitHub template repository feature ([use this template](https://github.com/majodev/go-docker-vscode/generate)). You will then start with a **single initial commit** in your own repository. 
 
 ```bash
-# https://github.com/koalaman/shellcheck
-# https://github.com/anordal/shellharden
-brew install shellharden shellcheck
+# Clone your new repository, cd into it, then easily start the docker-compose dev environment through our helper
+./docker-helper.sh --up
+```
+
+You should be inside the 'service' docker container with a bash shell.
+
+```bash
+development@94242c61cf2b:/app$ # inside your container...
+
+# Shortcut for make init, make build, make info and make test
+make all
+
+# Print all available make targets
+make help
+```
+
+### Visual Studio Code
+
+> If you are new to VSCode Remote - Containers feature, see our [FAQ: How does our VSCode setup work?](https://github.com/allaboutapps/go-starter/wiki/FAQ#how-does-our-vscode-setup-work).
+
+Run `CMD+SHIFT+P` `Go: Install/Update Tools` **after** attaching to the container with VSCode to auto-install all golang related vscode extensions.
+
+### Building and testing
+
+Other useful commands while developing your service:
+
+```bash
+development@94242c61cf2b:/app$ # inside your container...
+
+# Print all available make targets
+make help
+
+# Shortcut for make init, make build, make info and make test
+make all
+
+# Init install/cache dependencies and install tools to bin
+make init
+
+# Rebuild only after changes to files
 make
+
+# Execute all tests
+make test
 ```
 
+Full docker build:
 
-### Deployment
+```bash
+docker build . -t go-docker-vscode
 
-`backup-ns.sh` requires the following ClusterRole as a base:
-```yaml
-# This ClusterRole is bound via namespace isolated RoleBindings + ServiceAccounts in each consuming namespaces.
-# The main usecase of these service-accounts is allow perform streaming data (via k exec) from different pods (e.g. a SQL dump).
-#
-# Note: A RoleBinding can also reference a ClusterRole to grant the permissions defined in that ClusterRole to resources inside the RoleBinding's namespace.
-# This kind of reference lets you define a set of common roles across your cluster, then reuse them within multiple namespaces.
-# https://kubernetes.io/docs/reference/access-authn-authz/rbac/#rolebinding-example
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: a3cloud-backup
-rules:
-- apiGroups: [""]
-  resources: ["pods", "persistentvolumeclaims"]
-  verbs: ["get", "list"]
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["get", "list"]
-- apiGroups: [""]
-  resources: ["pods/exec"]
-  verbs: ["get", "create"]
-- apiGroups: ["snapshot.storage.k8s.io"]
-  resources: ["volumesnapshots"]
-  verbs: ["get", "create", "list", "watch"]
+docker run go-docker-vscode
+# Hello World
 ```
 
-`backup-ns.sh` requires the following RBAC objects in each consuming namespace:
-```yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: a3cloud-backup
-  namespace: <NAMESPACE>
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: a3cloud-backup
-  namespace: <NAMESPACE>
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: a3cloud-backup
-subjects:
-  - kind: ServiceAccount
-    name: a3cloud-backup
-    namespace: <NAMESPACE>
-```
+### Uninstall
 
-A `backup-ns.sh` cronjob can then be configured like the following (e.g. to backup a postgres database in a namespace):
+Simply run `./docker-helper --destroy` in your working directory (on your host machine) to wipe all docker related traces of this project (and its volumes!).
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: backup-env
-  namespace: <NAMESPACE>
-data:
-  # BAK_DRY_RUN: "true"
-  # BAK_PVC_NAME: data
-  BAK_LABEL_VS_TYPE: cronjob
-  
-  BAK_FLOCK: "true"
-  # BAK_FLOCK_DIR: /mnt/host-backup-locks
+## Maintainers
 
-  # BAK_DB_SKIP: "true" # no db in this namespace?!
+- [Mario Ranftl - @majodev](https://github.com/majodev)
 
-  BAK_DB_POSTGRES: "true"
-  # BAK_DB_POSTGRES_EXEC_RESOURCE: deployment/app-base
-  # BAK_DB_POSTGRES_EXEC_CONTAINER: postgres
 
-  # BAK_DB_MYSQL: "true"
-  # BAK_DB_MYSQL_EXEC_RESOURCE: deployment/app-base # deployment/wordpress-base
-  # BAK_DB_MYSQL_EXEC_CONTAINER: mariadb # mysql
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: backup
-  namespace: <NAMESPACE>
-  annotations:
-    a3c-validate-prefer-explicit-pod-strategy: "Recreate"
-spec:
-  timeZone: 'Europe/Vienna'
-  schedule: "xx 0 * * *"
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
-  jobTemplate:
-    spec:
-      backoffLimit: 2 # retry three times.
-      activeDeadlineSeconds: 3600 # 1h max time before considered failed
-      template:
-        metadata:
-          labels:
-            app: backup
-        spec:
-          restartPolicy: Never # do not try to restart the container itself (full pod instead)
+## License
 
-          # this container uses kubectl
-          serviceAccountName: a3cloud-backup
-
-          affinity:
-            podAffinity:
-              # force exe on same node as app-base pod
-              requiredDuringSchedulingIgnoredDuringExecution:
-              - labelSelector:
-                  matchExpressions:
-                  - key: app
-                    operator: In
-                    values: ["app-base"]
-                topologyKey: kubernetes.io/hostname
-
-          initContainers:
-          - name: init-permissions
-            image: busybox:1.26.2
-            command: ["sh", "-c", "chmod 777 /mnt/host-backup-locks"]
-            volumeMounts:
-            - name: host-backup-locks
-              mountPath: /mnt/host-backup-locks
-
-          containers:
-          - image: <THE_BACKUP_IMAGE>
-            name: backup
-            envFrom:
-            - configMapRef:
-                name: backup-env
-            env:
-            - name: BAK_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: BAK_LABEL_VS_POD
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-
-            volumeMounts:
-            - name: timezone
-              mountPath: /etc/localtime
-            - name: host-backup-locks
-              mountPath: /mnt/host-backup-locks
-
-          volumes:
-          - name: timezone
-            hostPath:
-              path: /usr/share/zoneinfo/Europe/Vienna
-          - name: host-backup-locks
-            hostPath:
-              path: /tmp/backup-ns-locks
-              type: DirectoryOrCreate # control parallelism from multiple k8s hosts (flock)
-```
-
-You may then trigger a immediate execution via `kubectl create job --from=cronjob.batch/backup <unique-job-name>`.
+[MIT](LICENSE) © Mario Ranftl
