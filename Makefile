@@ -13,6 +13,10 @@ all: init ##- Runs all of our common make targets: clean, init, build and test.
 	@$(MAKE) build
 	@$(MAKE) test
 
+watch: ##- Watches for changes and runs 'make dev' on modifications.
+	@echo Watching. Use Ctrl-c to exit.
+	watchexec -r -w . --exts go $(MAKE) build
+
 info: ##- Prints info about go.mod updates and current go version.
 	@$(MAKE) get-go-outdated-modules
 	@go version
