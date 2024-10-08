@@ -300,12 +300,35 @@ func ensurePostgresAvailable(config Config) {
 
 func ensureMySQLAvailable(config Config) {
 	log.Printf("Checking if MySQL is available in namespace '%s'...", config.Namespace)
+
+	script := fmt.Sprintf(`
+		# inject default MYSQL_PWD into current env (before cmds are visible in logs)
+		export MYSQL_PWD=%s
+
+		set -Eeox pipefail
+
+		# check clis are available
+		command -v gzip
+		mysql --version
+		mysqldump --version
+
+		# check db is accessible (default password injected via above MYSQL_PWD)
+		mysql \
+			--host %s \
+			--user %s \
+			--default-character-set=utf8 \
+			%s \
+			-e "SELECT 1;" >/dev/null
+	`, config.DBMySQLPassword, config.DBMySQLHost, config.DBMySQLUser, config.DBMySQLDB)
+
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBMySQLExecResource, "-c", config.DBMySQLExecContainer, "--", "mysql", "--version")
-	err := cmd.Run()
+	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBMySQLExecResource, "-c", config.DBMySQLExecContainer, "--", "bash", "-c", script)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Fatalf("MySQL not available in namespace '%s': %v", config.Namespace, err)
+		log.Printf("Error checking MySQL availability: %v\nOutput: %s", err, string(output))
+		log.Fatalf("MySQL not available in namespace '%s'", config.Namespace)
 	}
+	log.Printf("MySQL is available in namespace '%s'", config.Namespace)
 }
 
 func ensureFreeSpace(config Config, resource, container, dir string) {
