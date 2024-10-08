@@ -18,40 +18,40 @@ import (
 
 // Config holds all the configuration options
 type Config struct {
-	DryRun                     bool
-	Debug                      bool
-	Namespace                  string
-	PVCName                    string
-	VSRand                     string
-	LabelVSType                string
-	LabelVSPod                 string
-	LabelVSRetain              string
-	LabelVSRetainDays          int
-	VSNameTemplate             string
-	VSClassName                string
-	VSWaitUntilReady           bool
-	VSWaitUntilReadyTimeout    string
-	ThresholdSpaceUsedPercent  int
-	DBSkip                     bool
-	DBPostgres                 bool
-	DBPostgresExecResource     string
-	DBPostgresExecContainer    string
-	DBPostgresDumpFile         string
-	DBPostgresUser             string
-	DBPostgresPassword         string
-	DBPostgresDB               string
-	DBMySQL                    bool
-	DBMySQLExecResource        string
-	DBMySQLExecContainer       string
-	DBMySQLDumpFile            string
-	DBMySQLHost                string
-	DBMySQLUser                string
-	DBMySQLPassword            string
-	DBMySQLDB                  string
-	Flock                      bool
-	FlockCount                 int
-	FlockDir                   string
-	FlockTimeoutSec            int
+	DryRun                    bool
+	Debug                     bool
+	Namespace                 string
+	PVCName                   string
+	VSRand                    string
+	LabelVSType               string
+	LabelVSPod                string
+	LabelVSRetain             string
+	LabelVSRetainDays         int
+	VSNameTemplate            string
+	VSClassName               string
+	VSWaitUntilReady          bool
+	VSWaitUntilReadyTimeout   string
+	ThresholdSpaceUsedPercent int
+	DBSkip                    bool
+	DBPostgres                bool
+	DBPostgresExecResource    string
+	DBPostgresExecContainer   string
+	DBPostgresDumpFile        string
+	DBPostgresUser            string
+	DBPostgresPassword        string
+	DBPostgresDB              string
+	DBMySQL                   bool
+	DBMySQLExecResource       string
+	DBMySQLExecContainer      string
+	DBMySQLDumpFile           string
+	DBMySQLHost               string
+	DBMySQLUser               string
+	DBMySQLPassword           string
+	DBMySQLDB                 string
+	Flock                     bool
+	FlockCount                int
+	FlockDir                  string
+	FlockTimeoutSec           int
 }
 
 func main() {
@@ -235,7 +235,7 @@ func flockLock(lockFile string, timeoutSec int, dryRun bool) func() {
 		log.Fatalf("Failed to open lock file: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	_, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 
 	err = syscall.Flock(int(lockFd.Fd()), syscall.LOCK_EX)
