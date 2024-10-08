@@ -321,20 +321,27 @@ func backupPostgres(config Config) {
 		return
 	}
 	log.Printf("Backing up Postgres database '%s' in namespace '%s'...", config.DBPostgresDB, config.Namespace)
-	
+
 	script := fmt.Sprintf(`
-		set -Eeox pipefail
-		
+		# inject default PGPASSWORD into current env (before cmds are visible in logs)
 		export PGPASSWORD=%s
-		
+
+		set -Eeox pipefail
+
+		# setup trap in case of dump failure to disk (typically due to disk space issues)
+        # we will automatically remove the dump file in case of failure!
 		trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f %s && df -h %s; exit $exit_code' EXIT
 		
+		# create dump and pipe to gzip archive
 		pg_dump --username=%s --format=p --clean --if-exists %s | gzip -c > %s
 		
+		# print dump file info
 		ls -lha %s
 		
+		# ensure generated file is bigger than 0 bytes
 		[ -s %s ] || exit 1
 		
+		# print mounted disk space
 		df -h %s
 	`, config.DBPostgresPassword, config.DBPostgresDumpFile, filepath.Dir(config.DBPostgresDumpFile),
 		config.DBPostgresUser, config.DBPostgresDB, config.DBPostgresDumpFile,
@@ -356,20 +363,27 @@ func backupMySQL(config Config) {
 		return
 	}
 	log.Printf("Backing up MySQL database '%s' in namespace '%s'...", config.DBMySQLDB, config.Namespace)
-	
+
 	script := fmt.Sprintf(`
+		# inject default MYSQL_PWD into current env (before cmds are visible in logs)
+		export MYSQL_PWD=%s
+
 		set -Eeox pipefail
 		
-		export MYSQL_PWD=%s
-		
+        # setup trap in case of dump failure to disk (typically due to disk space issues)
+        # we will automatically remove the dump file in case of failure!
 		trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f %s && df -h %s; exit $exit_code' EXIT
 		
+		# create dump and pipe to gzip archive (default password injected via above MYSQL_PWD)
 		mysqldump --host=%s --user=%s --default-character-set=utf8 --add-locks --set-charset --compact --create-options --add-drop-table --lock-tables %s | gzip -c > %s
 		
+		# print dump file info
 		ls -lha %s
 		
+		# ensure generated file is bigger than 0 bytes
 		[ -s %s ] || exit 1
 		
+		# print mounted disk space
 		df -h %s
 	`, config.DBMySQLPassword, config.DBMySQLDumpFile, filepath.Dir(config.DBMySQLDumpFile),
 		config.DBMySQLHost, config.DBMySQLUser, config.DBMySQLDB, config.DBMySQLDumpFile,
