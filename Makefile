@@ -24,13 +24,13 @@ go-format: ##- (opt) Runs go format.
 	go fmt ./...
 
 go-build: ##- (opt) Runs go build.
-	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/app-linux-arm64
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/app-linux-arm64
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64
 
-	@CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/app-darwin-arm64
-	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/app-darwin-amd64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/app-darwin-arm64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/app-darwin-amd64
 
-	@CGO_ENABLED=0 go build -o bin/app
+	CGO_ENABLED=0 go build -o bin/app
 
 # https://github.com/gotestyourself/gotestsum#format 
 # w/o cache https://github.com/golang/go/issues/24573 - see "go help testflag"

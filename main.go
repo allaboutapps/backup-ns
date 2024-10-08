@@ -67,7 +67,7 @@ func main() {
 	}
 
 	if !config.DBPostgres && !config.DBMySQL && !config.DBSkip {
-		log.Fatal("Either DBPostgres=true or DBMySQL=true or DBSkip=true must be set.")
+		log.Fatal("Either BAK_DB_POSTGRES=true or BAK_DB_MYSQL=true or BAK_DB_SKIP=true must be set.")
 	}
 
 	if config.Flock {
@@ -186,12 +186,16 @@ func getCurrentNamespace() string {
 }
 
 func generateRandomString() string {
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	result := make([]byte, 6)
-	for i := range result {
-		result[i] = charset[time.Now().UnixNano()%int64(len(charset))]
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+	b := make([]rune, 6)
+	for i := range b {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letterRunes))))
+		if err != nil {
+			log.Fatalf("generateRandomString: Failed to generate secure random number: %v", err)
+		}
+		b[i] = letterRunes[num.Int64()]
 	}
-	return string(result)
+	return string(b)
 }
 
 func getDefaultFlockCount() int {
@@ -221,10 +225,9 @@ func generateVSName(config Config) string {
 }
 
 func flockShuffleLockFile(dir string, count int) string {
-	// rand.Seed(time.Now().UnixNano())
 	n, err := rand.Int(rand.Reader, big.NewInt(int64(count)))
 	if err != nil {
-		log.Fatalf("Failed to generate secure random number: %v", err)
+		log.Fatalf("flockShuffleLockFile: Failed to generate secure random number: %v", err)
 	}
 	return filepath.Join(dir, fmt.Sprintf("%d.lock", n.Int64()+1))
 }
