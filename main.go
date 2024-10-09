@@ -459,13 +459,13 @@ func generateVSLabels(config Config) map[string]string {
 		weeklyLabel := now.Format("2006-w02")
 		monthlyLabel := now.Format("2006-01")
 
-		if !volumeSnapshotExists(config.Namespace, "backup-ns.sh/daily", dailyLabel) {
+		if !volumeSnapshotWithLabelValueExists(config.Namespace, "backup-ns.sh/daily", dailyLabel) {
 			labels["backup-ns.sh/daily"] = dailyLabel
 		}
-		if !volumeSnapshotExists(config.Namespace, "backup-ns.sh/weekly", weeklyLabel) {
+		if !volumeSnapshotWithLabelValueExists(config.Namespace, "backup-ns.sh/weekly", weeklyLabel) {
 			labels["backup-ns.sh/weekly"] = weeklyLabel
 		}
-		if !volumeSnapshotExists(config.Namespace, "backup-ns.sh/monthly", monthlyLabel) {
+		if !volumeSnapshotWithLabelValueExists(config.Namespace, "backup-ns.sh/monthly", monthlyLabel) {
 			labels["backup-ns.sh/monthly"] = monthlyLabel
 		}
 	} else if config.LabelVSRetain == "days" {
@@ -477,7 +477,8 @@ func generateVSLabels(config Config) map[string]string {
 	return labels
 }
 
-func volumeSnapshotExists(namespace, labelKey, labelValue string) bool {
+func volumeSnapshotWithLabelValueExists(namespace, labelKey, labelValue string) bool {
+	// #nosec G204
 	cmd := exec.Command("kubectl", "get", "volumesnapshot", "-n", namespace, "-l", fmt.Sprintf("%s=%s", labelKey, labelValue), "-o", "name")
 	output, err := cmd.Output()
 	if err != nil {
