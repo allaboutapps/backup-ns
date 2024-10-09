@@ -11,7 +11,7 @@ matrix:
       # The name of the k8s namespaces that these pipelines will target.
       # K8S_DEPLOY_NS_DEV:
       # K8S_DEPLOY_NS_STAGING:
-      # K8S_DEPLOY_NS_PRODUCTION: 
+      # K8S_DEPLOY_NS_PRODUCTION:
 
 # YAML Configuration anchors - https://learnxinyminutes.com/docs/yaml/
 # Will be evaluated WHILE the YAML is parsed, any valid yaml allowed, substitutions ${XXX} allowed.
@@ -27,7 +27,7 @@ alias:
   - &IMAGE_DEPLOY_ID ${DRONE_REPO,,}:${DRONE_COMMIT_SHA}
 
   # Defines which branches will trigger a docker image push our Google Cloud Registry (tags are always published)
-  - &GCR_PUBLISH_BRANCHES [main]
+  - &GCR_PUBLISH_BRANCHES [main, mr/go]
 
     # Docker registry publish default settings
   - &GCR_REGISTRY_SETTINGS
@@ -87,7 +87,7 @@ pipeline:
       - *IMAGE_DEPLOY_TAG
       - latest
       - ${DRONE_BRANCH/\//-}
-      - '${DRONE_COMMIT_SHA:0:10}'
+      - "${DRONE_COMMIT_SHA:0:10}"
     when:
       branch: *GCR_PUBLISH_BRANCHES
       event: *BUILD_EVENTS
