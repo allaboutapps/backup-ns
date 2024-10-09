@@ -1,3 +1,6 @@
+# which kubectl version to install (optimally this is in sync with the k8s version in your cluster)
+FROM bitnami/kubectl:1.28 as kubectl
+
 ### -----------------------
 # --- Stage: development
 # --- Purpose: Local development environment
@@ -185,21 +188,8 @@ RUN make go-build
 # https://github.com/GoogleContainerTools/distroless#debug-images
 FROM gcr.io/distroless/base-debian12:debug as app
 
-# FROM debian:buster-slim as app
-# RUN apt-get update \
-#     && apt-get install -y \
-#     #
-#     # Mandadory minimal linux packages
-#     # Installed at development stage and app stage
-#     # Do not forget to add mandadory linux packages to the base development Dockerfile stage above!
-#     #
-#     # -- START MANDADORY --
-#     ca-certificates \
-#     # --- END MANDADORY ---
-#     #
-#     && apt-get clean \
-#     && rm -rf /var/lib/apt/lists/*
-
+# https://hub.docker.com/r/bitnami/kubectl/tags
+COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /app/bin/app /app/
 
 WORKDIR /app
