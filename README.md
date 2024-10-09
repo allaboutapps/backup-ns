@@ -4,7 +4,9 @@ k8s application-aware snapshots.
 
 
 Focus:
-* Zero-dependency (e.g. only `testify` for testing), `kubectl` must be in the PATH and working.
+* Swiss-army knife for application-aware k8s backup and restore without the need for operators or CRDs.
+* Cronjobs for backup and retention.
+* Low-dependency (e.g. only `testify` for testing, cobra for cli entrypoint), only `kubectl` must be in the `PATH` and working.
 
 > Note that the README is WIP!
 
