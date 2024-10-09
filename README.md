@@ -3,6 +3,9 @@
 k8s application-aware snapshots.
 
 
+Focus:
+* Zero-dependency (e.g. only `testify` for testing), `kubectl` must be in the PATH and working.
+
 > Note that the README is WIP!
 
 **ToC**:

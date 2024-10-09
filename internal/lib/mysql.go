@@ -7,8 +7,19 @@ import (
 	"path/filepath"
 )
 
-func EnsureMySQLAvailable(config Config) {
-	log.Printf("Checking if MySQL is available in namespace '%s'...", config.Namespace)
+type MySQLConfig struct {
+	Enabled       bool
+	ExecResource  string
+	ExecContainer string
+	DumpFile      string
+	Host          string
+	User          string
+	Password      string
+	DB            string
+}
+
+func EnsureMySQLAvailable(namespace string, config MySQLConfig) {
+	log.Printf("Checking if MySQL is available in namespace '%s'...", namespace)
 
 	script := fmt.Sprintf(`
 		# inject default MYSQL_PWD into current env (before cmds are visible in logs)
@@ -28,24 +39,24 @@ func EnsureMySQLAvailable(config Config) {
 			--default-character-set=utf8 \
 			%s \
 			-e "SELECT 1;" >/dev/null
-	`, config.DBMySQLPassword, config.DBMySQLHost, config.DBMySQLUser, config.DBMySQLDB)
+	`, config.Password, config.Host, config.User, config.DB)
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBMySQLExecResource, "-c", config.DBMySQLExecContainer, "--", "bash", "-c", script)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error checking MySQL availability: %v\nOutput: %s", err, string(output))
-		log.Fatalf("MySQL not available in namespace '%s'", config.Namespace)
+		log.Fatalf("MySQL not available in namespace '%s'", namespace)
 	}
-	log.Printf("MySQL is available in namespace '%s'. Output:\n%s", config.Namespace, string(output))
+	log.Printf("MySQL is available in namespace '%s'. Output:\n%s", namespace, string(output))
 }
 
-func BackupMySQL(config Config) {
-	if config.DryRun {
+func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) {
+	if dryRun {
 		log.Println("Skipping MySQL backup - dry run mode is active")
 		return
 	}
-	log.Printf("Backing up MySQL database '%s' in namespace '%s'...", config.DBMySQLDB, config.Namespace)
+	log.Printf("Backing up MySQL database '%s' in namespace '%s'...", config.DB, namespace)
 
 	script := fmt.Sprintf(`
 		# inject default MYSQL_PWD into current env (before cmds are visible in logs)
@@ -79,12 +90,12 @@ func BackupMySQL(config Config) {
 		
 		# print mounted disk space
 		df -h %s
-	`, config.DBMySQLPassword, config.DBMySQLDumpFile, filepath.Dir(config.DBMySQLDumpFile),
-		config.DBMySQLHost, config.DBMySQLUser, config.DBMySQLDB, config.DBMySQLDumpFile,
-		config.DBMySQLDumpFile, config.DBMySQLDumpFile, filepath.Dir(config.DBMySQLDumpFile))
+	`, config.Password, config.DumpFile, filepath.Dir(config.DumpFile),
+		config.Host, config.User, config.DB, config.DumpFile,
+		config.DumpFile, config.DumpFile, filepath.Dir(config.DumpFile))
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBMySQLExecResource, "-c", config.DBMySQLExecContainer, "--", "bash", "-c", script)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error backing up MySQL: %v\nOutput: %s", err, string(output))

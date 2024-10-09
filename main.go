@@ -18,45 +18,43 @@ func main() {
 		log.Println("Dry run mode is active, write operations are skipped!")
 	}
 
-	if !config.DBPostgres && !config.DBMySQL && !config.DBSkip {
+	if !config.Postgres.Enabled && !config.MySQL.Enabled && !config.DBSkip {
 		log.Fatal("Either BAK_DB_POSTGRES=true or BAK_DB_MYSQL=true or BAK_DB_SKIP=true must be set.")
 	}
 
-	if config.Flock {
-		lockFile := lib.FlockShuffleLockFile(config.FlockDir, config.FlockCount)
+	if config.Flock.Enabled {
+		lockFile := lib.FlockShuffleLockFile(config.Flock.Dir, config.Flock.Count)
 		log.Printf("Using lock_file='%s'...", lockFile)
 
-		unlock := lib.FlockLock(lockFile, config.FlockTimeoutSec, config.DryRun)
+		unlock := lib.FlockLock(lockFile, config.Flock.TimeoutSec, config.DryRun)
 		defer unlock()
 	}
 
-	vsName := lib.GenerateVSName(config)
+	vsName := lib.GenerateVSName(config.VSNameTemplate, config.PVCName, config.VSRand)
 	log.Println("VS Name:", vsName)
 
-	lib.EnsurePVCAvailable(config)
+	lib.EnsurePVCAvailable(config.Namespace, config.PVCName)
 
-	if config.DBPostgres {
-		lib.EnsureResourceAvailable(config.Namespace, config.DBPostgresExecResource)
-		lib.EnsurePostgresAvailable(config)
-		lib.EnsureFreeSpace(config, config.DBPostgresExecResource, config.DBPostgresExecContainer, filepath.Dir(config.DBPostgresDumpFile))
-		lib.BackupPostgres(config)
+	if config.Postgres.Enabled {
+		lib.EnsureResourceAvailable(config.Namespace, config.Postgres.ExecResource)
+		lib.EnsurePostgresAvailable(config.Namespace, config.Postgres)
+		lib.EnsureFreeSpace(config.Namespace, config.Postgres.ExecResource,
+			config.Postgres.ExecContainer, filepath.Dir(config.Postgres.DumpFile), config.ThresholdSpaceUsedPercent)
+		lib.BackupPostgres(config.Namespace, config.DryRun, config.Postgres)
 	}
 
-	if config.DBMySQL {
-		lib.EnsureResourceAvailable(config.Namespace, config.DBMySQLExecResource)
-		lib.EnsureMySQLAvailable(config)
-		lib.EnsureFreeSpace(config, config.DBMySQLExecResource, config.DBMySQLExecContainer, filepath.Dir(config.DBMySQLDumpFile))
-		lib.BackupMySQL(config)
+	if config.MySQL.Enabled {
+		lib.EnsureResourceAvailable(config.Namespace, config.MySQL.ExecResource)
+		lib.EnsureMySQLAvailable(config.Namespace, config.MySQL)
+		lib.EnsureFreeSpace(config.Namespace, config.MySQL.ExecResource,
+			config.MySQL.ExecContainer, filepath.Dir(config.MySQL.DumpFile), config.ThresholdSpaceUsedPercent)
+		lib.BackupMySQL(config.Namespace, config.DryRun, config.MySQL)
 	}
 
 	vsLabels := lib.GenerateVSLabels(config)
 	vsAnnotations := lib.GenerateVSAnnotations(config)
 
 	vsObject := lib.GenerateVSObject(config, vsName, vsLabels, vsAnnotations)
-
-	if config.Debug {
-		log.Println("VS Object:", vsObject)
-	}
 
 	lib.CreateVolumeSnapshot(config, vsName, vsObject)
 

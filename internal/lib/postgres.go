@@ -7,8 +7,18 @@ import (
 	"path/filepath"
 )
 
-func EnsurePostgresAvailable(config Config) {
-	log.Printf("Checking if Postgres is available in namespace '%s'...", config.Namespace)
+type PostgresConfig struct {
+	Enabled       bool
+	ExecResource  string
+	ExecContainer string
+	DumpFile      string
+	User          string
+	Password      string
+	DB            string
+}
+
+func EnsurePostgresAvailable(namespace string, config PostgresConfig) {
+	log.Printf("Checking if Postgres is available in namespace '%s'...", namespace)
 
 	script := fmt.Sprintf(`
 		# inject default PGPASSWORD into current env (before cmds are visible in logs)
@@ -23,26 +33,26 @@ func EnsurePostgresAvailable(config Config) {
 
 		# check db is accessible
 		psql --username=%s %s -c "SELECT 1;" >/dev/null
-	`, config.DBPostgresPassword, config.DBPostgresUser, config.DBPostgresDB)
+	`, config.Password, config.User, config.DB)
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBPostgresExecResource, "-c", config.DBPostgresExecContainer, "--", "bash", "-c", script)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error checking Postgres availability: %v\nOutput: %s", err, string(output))
-		log.Fatalf("Postgres not available in namespace '%s'", config.Namespace)
+		log.Fatalf("Postgres not available in namespace '%s'", namespace)
 	}
-	log.Printf("Postgres is available in namespace '%s'. Output:\n%s", config.Namespace, string(output))
+	log.Printf("Postgres is available in namespace '%s'. Output:\n%s", namespace, string(output))
 }
 
 // TODO: find a way to kill the remote process (e.g. pgdump / mysqldump) the exec command started
 // in the case if origin process on the host terminates (or if we lose connection?)
-func BackupPostgres(config Config) {
-	if config.DryRun {
+func BackupPostgres(namespace string, dryRun bool, config PostgresConfig) {
+	if dryRun {
 		log.Println("Skipping Postgres backup - dry run mode is active")
 		return
 	}
-	log.Printf("Backing up Postgres database '%s' in namespace '%s'...", config.DBPostgresDB, config.Namespace)
+	log.Printf("Backing up Postgres database '%s' in namespace '%s'...", config.DB, namespace)
 
 	script := fmt.Sprintf(`
 		# inject default PGPASSWORD into current env (before cmds are visible in logs)
@@ -65,12 +75,12 @@ func BackupPostgres(config Config) {
 		
 		# print mounted disk space
 		df -h %s
-	`, config.DBPostgresPassword, config.DBPostgresDumpFile, filepath.Dir(config.DBPostgresDumpFile),
-		config.DBPostgresUser, config.DBPostgresDB, config.DBPostgresDumpFile,
-		config.DBPostgresDumpFile, config.DBPostgresDumpFile, filepath.Dir(config.DBPostgresDumpFile))
+	`, config.Password, config.DumpFile, filepath.Dir(config.DumpFile),
+		config.User, config.DB, config.DumpFile,
+		config.DumpFile, config.DumpFile, filepath.Dir(config.DumpFile))
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, config.DBPostgresExecResource, "-c", config.DBPostgresExecContainer, "--", "bash", "-c", script)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error backing up Postgres: %v\nOutput: %s", err, string(output))

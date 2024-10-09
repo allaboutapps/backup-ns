@@ -5,7 +5,7 @@ import (
 	"os/exec"
 )
 
-func EnsureResourceAvailable(namespace string, resource string) {
+func EnsureResourceAvailable(namespace, resource string) {
 	log.Printf("Checking if resource '%s' exists in namespace '%s'...", resource, namespace)
 
 	cmd := exec.Command("kubectl", "get", "-n", namespace, resource, "-o", "wide")

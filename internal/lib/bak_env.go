@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 )
 
 // Config holds all the configuration options
@@ -28,25 +27,9 @@ type Config struct {
 	VSWaitUntilReadyTimeout   string
 	ThresholdSpaceUsedPercent int
 	DBSkip                    bool
-	DBPostgres                bool
-	DBPostgresExecResource    string
-	DBPostgresExecContainer   string
-	DBPostgresDumpFile        string
-	DBPostgresUser            string
-	DBPostgresPassword        string
-	DBPostgresDB              string
-	DBMySQL                   bool
-	DBMySQLExecResource       string
-	DBMySQLExecContainer      string
-	DBMySQLDumpFile           string
-	DBMySQLHost               string
-	DBMySQLUser               string
-	DBMySQLPassword           string
-	DBMySQLDB                 string
-	Flock                     bool
-	FlockCount                int
-	FlockDir                  string
-	FlockTimeoutSec           int
+	Postgres                  PostgresConfig
+	MySQL                     MySQLConfig
+	Flock                     FlockConfig
 }
 
 func LoadConfig() Config {
@@ -81,8 +64,8 @@ func LoadConfig() Config {
 		// The number of days to retain the snapshot if BAK_LABEL_VS_RETAIN is set to "days"
 		LabelVSRetainDays: getIntEnv("BAK_LABEL_VS_RETAIN_DAYS", 30),
 
-		// The name of the volume snapshot can be templated (will be evaluated after having the flock lock, if enabled)
-		VSNameTemplate: getEnv("BAK_VS_NAME_TEMPLATE", "${BAK_PVC_NAME}-$(date +\"%Y-%m-%d-%H%M%S\")-${BAK_VS_RAND}"),
+		// The (go template) of the name of the volume snapshot (will be evaluated after having the flock lock, if enabled)
+		VSNameTemplate: getEnv("BAK_VS_NAME_TEMPLATE", "{{ .pvcName }}-{{ .timestamp }}-{{ .rand }}"),
 
 		// The name of the volume snapshot class to use
 		VSClassName: getEnv("BAK_VS_CLASS_NAME", "a3cloud-csi-gce-pd"), // should have "Retain" deletion policy!
@@ -99,62 +82,68 @@ func LoadConfig() Config {
 		// If true, no application-aware backup is performed (no db - useful for testing the snapshot creation only)
 		DBSkip: getBoolEnv("BAK_DB_SKIP", false),
 
-		// If true, a postgresql dump is created before the snapshot
-		DBPostgres: getBoolEnv("BAK_DB_POSTGRES", false),
+		Postgres: PostgresConfig{
+			// If true, a postgresql dump is created before the snapshot
+			Enabled: getBoolEnv("BAK_DB_POSTGRES", false),
 
-		// The k8s resource to exec into to create the dump
-		DBPostgresExecResource: getEnv("BAK_DB_POSTGRES_EXEC_RESOURCE", "deployment/app-base"),
+			// The k8s resource to exec into to create the dump
+			ExecResource: getEnv("BAK_DB_POSTGRES_EXEC_RESOURCE", "deployment/app-base"),
 
-		// The container inside the above resource to exec into to create the dump
-		DBPostgresExecContainer: getEnv("BAK_DB_POSTGRES_EXEC_CONTAINER", "postgres"),
+			// The container inside the above resource to exec into to create the dump
+			ExecContainer: getEnv("BAK_DB_POSTGRES_EXEC_CONTAINER", "postgres"),
 
-		// The file inside the container to store the dump
-		DBPostgresDumpFile: getEnv("BAK_DB_POSTGRES_DUMP_FILE", "/var/lib/postgresql/data/dump.sql.gz"),
+			// The file inside the container to store the dump
+			DumpFile: getEnv("BAK_DB_POSTGRES_DUMP_FILE", "/var/lib/postgresql/data/dump.sql.gz"),
 
-		// The postgresql user to use for connecting/creating the dump (psql and pg_dump must be allowed)
-		DBPostgresUser: getEnv("BAK_DB_POSTGRES_USER", "${POSTGRES_USER}"),
+			// The postgresql user to use for connecting/creating the dump (psql and pg_dump must be allowed)
+			User: getEnv("BAK_DB_POSTGRES_USER", "${POSTGRES_USER}"),
 
-		// The postgresql password to use for connecting/creating the dump
-		DBPostgresPassword: getEnv("BAK_DB_POSTGRES_PASSWORD", "${POSTGRES_PASSWORD}"),
+			// The postgresql password to use for connecting/creating the dump
+			Password: getEnv("BAK_DB_POSTGRES_PASSWORD", "${POSTGRES_PASSWORD}"),
 
-		// The postgresql database to use for connecting/creating the dump
-		DBPostgresDB: getEnv("BAK_DB_POSTGRES_DB", "${POSTGRES_DB}"),
+			// The postgresql database to use for connecting/creating the dump
+			DB: getEnv("BAK_DB_POSTGRES_DB", "${POSTGRES_DB}"),
+		},
 
-		// If true, a mysql dump is created before the snapshot
-		DBMySQL: getBoolEnv("BAK_DB_MYSQL", false),
+		MySQL: MySQLConfig{
+			// If true, a mysql dump is created before the snapshot
+			Enabled: getBoolEnv("BAK_DB_MYSQL", false),
 
-		// The k8s resource to exec into to create the dump
-		DBMySQLExecResource: getEnv("BAK_DB_MYSQL_EXEC_RESOURCE", "deployment/app-base"),
+			// The k8s resource to exec into to create the dump
+			ExecResource: getEnv("BAK_DB_MYSQL_EXEC_RESOURCE", "deployment/app-base"),
 
-		// The container inside the above resource to exec into to create the dump
-		DBMySQLExecContainer: getEnv("BAK_DB_MYSQL_EXEC_CONTAINER", "mysql"),
+			// The container inside the above resource to exec into to create the dump
+			ExecContainer: getEnv("BAK_DB_MYSQL_EXEC_CONTAINER", "mysql"),
 
-		// The file inside the container to store the dump
-		DBMySQLDumpFile: getEnv("BAK_DB_MYSQL_DUMP_FILE", "/var/lib/mysql/dump.sql.gz"),
+			// The file inside the container to store the dump
+			DumpFile: getEnv("BAK_DB_MYSQL_DUMP_FILE", "/var/lib/mysql/dump.sql.gz"),
 
-		// The mysql host to use for connecting/creating the dump
-		DBMySQLHost: getEnv("BAK_DB_MYSQL_HOST", "127.0.0.1"),
+			// The mysql host to use for connecting/creating the dump
+			Host: getEnv("BAK_DB_MYSQL_HOST", "127.0.0.1"),
 
-		// The mysql user to use for connecting/creating the dump
-		DBMySQLUser: getEnv("BAK_DB_MYSQL_USER", "root"),
+			// The mysql user to use for connecting/creating the dump
+			User: getEnv("BAK_DB_MYSQL_USER", "root"),
 
-		// The mysql password to use for connecting/creating the dump
-		DBMySQLPassword: getEnv("BAK_DB_MYSQL_PASSWORD", "${MYSQL_ROOT_PASSWORD}"),
+			// The mysql password to use for connecting/creating the dump
+			Password: getEnv("BAK_DB_MYSQL_PASSWORD", "${MYSQL_ROOT_PASSWORD}"),
 
-		// The mysql database to use for connecting/creating the dump
-		DBMySQLDB: getEnv("BAK_DB_MYSQL_DB", "${MYSQL_DATABASE}"),
+			// The mysql database to use for connecting/creating the dump
+			DB: getEnv("BAK_DB_MYSQL_DB", "${MYSQL_DATABASE}"),
+		},
 
-		// If true, flock is used to coordinate concurrent backup script execution, e.g. controlling per k8s node backup script concurrency
-		Flock: getBoolEnv("BAK_FLOCK", false),
+		Flock: FlockConfig{
+			// If true, flock is used to coordinate concurrent backup script execution, e.g. controlling per k8s node backup script concurrency
+			Enabled: getBoolEnv("BAK_FLOCK", false),
 
-		// The number of concurrent backup scripts allowed to run
-		FlockCount: getIntEnv("BAK_FLOCK_COUNT", getDefaultFlockCount()),
+			// The number of concurrent backup scripts allowed to run
+			Count: getIntEnv("BAK_FLOCK_COUNT", getDefaultFlockCount()),
 
-		// The dir in which we will create file locks to coordinate multiple running backup-ns.sh jobs
-		FlockDir: getEnv("BAK_FLOCK_DIR", "/mnt/host-backup-locks"),
+			// The dir in which we will create file locks to coordinate multiple running backup-ns.sh jobs
+			Dir: getEnv("BAK_FLOCK_DIR", "/mnt/host-backup-locks"),
 
-		// The timeout in seconds to wait for the flock lock until we exit 1
-		FlockTimeoutSec: getIntEnv("BAK_FLOCK_TIMEOUT_SEC", 3600),
+			// The timeout in seconds to wait for the flock lock until we exit 1
+			TimeoutSec: getIntEnv("BAK_FLOCK_TIMEOUT_SEC", 3600),
+		},
 	}
 }
 
@@ -206,22 +195,4 @@ func generateRandomString(n int) string {
 		b[i] = letterRunes[num.Int64()]
 	}
 	return string(b)
-}
-
-func getDefaultFlockCount() int {
-	cmd := exec.Command("nproc", "--all")
-	output, err := cmd.Output()
-	if err != nil {
-		log.Printf("Error getting nproc: %v", err)
-		return 2
-	}
-	nproc, err := strconv.Atoi(strings.TrimSpace(string(output)))
-	if err != nil {
-		log.Printf("Error parsing nproc: %v", err)
-		return 2
-	}
-	if nproc < 2 {
-		return 1
-	}
-	return nproc / 2
 }

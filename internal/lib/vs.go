@@ -4,19 +4,28 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"os/exec"
 	"strconv"
-	"strings"
 	"time"
 )
 
-func GenerateVSName(config Config) string {
-	vsName := config.VSNameTemplate
-	vsName = strings.ReplaceAll(vsName, "${BAK_PVC_NAME}", config.PVCName)
-	vsName = strings.ReplaceAll(vsName, "${BAK_VS_RAND}", config.VSRand)
-	vsName = strings.ReplaceAll(vsName, "$(date +\"%Y-%m-%d-%H%M%S\")", time.Now().Format("2006-01-02-150405"))
-	return vsName
+func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) string {
+	templ := template.Must(template.New("vsNameTemplate").Parse(vsNameTemplate))
+	var buf bytes.Buffer
+
+	err := templ.Execute(&buf, map[string]any{
+		"pvcName":   pvcName,
+		"timestamp": time.Now().Format("2006-01-02-150405"),
+		"rand":      vsRand,
+	})
+
+	if err != nil {
+		log.Fatalf("Error generating vsNameTemplate: %v", err)
+	}
+
+	return buf.String()
 }
 
 func GenerateVSLabels(config Config) map[string]string {
@@ -81,8 +90,8 @@ BAK_DB_MYSQL_DUMP_FILE=%s
 BAK_DB_MYSQL_HOST=%s
 BAK_DB_MYSQL_USER=%s
 BAK_DB_MYSQL_DB=%s`,
-			config.DBPostgres, config.DBPostgresExecResource, config.DBPostgresExecContainer, config.DBPostgresDumpFile, config.DBPostgresUser, config.DBPostgresDB,
-			config.DBMySQL, config.DBMySQLExecResource, config.DBMySQLExecContainer, config.DBMySQLDumpFile, config.DBMySQLHost, config.DBMySQLUser, config.DBMySQLDB),
+			config.Postgres.Enabled, config.Postgres.ExecResource, config.Postgres.ExecContainer, config.Postgres.DumpFile, config.Postgres.User, config.Postgres.DB,
+			config.MySQL.Enabled, config.MySQL.ExecResource, config.MySQL.ExecContainer, config.MySQL.DumpFile, config.MySQL.Host, config.MySQL.User, config.MySQL.DB),
 	}
 	return annotations
 }

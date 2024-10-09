@@ -7,10 +7,20 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
+
+type FlockConfig struct {
+	Enabled    bool
+	Count      int
+	Dir        string
+	TimeoutSec int
+}
 
 func FlockShuffleLockFile(dir string, count int) string {
 	n, err := rand.Int(rand.Reader, big.NewInt(int64(count)))
@@ -49,4 +59,22 @@ func FlockLock(lockFile string, timeoutSec int, dryRun bool) func() {
 		lockFd.Close()
 		log.Printf("Released lock from '%s'", lockFile)
 	}
+}
+
+func getDefaultFlockCount() int {
+	cmd := exec.Command("nproc", "--all")
+	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("Error getting nproc: %v", err)
+		return 2
+	}
+	nproc, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	if err != nil {
+		log.Printf("Error parsing nproc: %v", err)
+		return 2
+	}
+	if nproc < 2 {
+		return 1
+	}
+	return nproc / 2
 }

@@ -7,21 +7,21 @@ import (
 	"strings"
 )
 
-func EnsurePVCAvailable(config Config) {
-	log.Printf("Checking if PVC '%s' exists in namespace '%s'...", config.PVCName, config.Namespace)
+func EnsurePVCAvailable(namespace, pvcName string) {
+	log.Printf("Checking if PVC '%s' exists in namespace '%s'...", pvcName, namespace)
 	// #nosec G204
-	cmd := exec.Command("kubectl", "get", "pvc", config.PVCName, "-n", config.Namespace)
+	cmd := exec.Command("kubectl", "get", "pvc", pvcName, "-n", namespace)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Fatalf("PVC '%s' not found in namespace '%s'", config.PVCName, config.Namespace)
+		log.Fatalf("PVC '%s' not found in namespace '%s'", pvcName, namespace)
 	}
-	log.Printf("PVC '%s' is available in namespace '%s'. Output:\n%s", config.PVCName, config.Namespace, string(output))
+	log.Printf("PVC '%s' is available in namespace '%s'. Output:\n%s", pvcName, namespace, string(output))
 }
 
-func EnsureFreeSpace(config Config, resource, container, dir string) {
-	log.Printf("Checking free space on %s in namespace '%s'...", dir, config.Namespace)
+func EnsureFreeSpace(namespace, resource, container, dir string, thresholdSpaceUsedPercent int) {
+	log.Printf("Checking free space on %s in namespace '%s'...", dir, namespace)
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", config.Namespace, resource, "-c", container, "--", "df", "-h", dir)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, resource, "-c", container, "--", "df", "-h", dir)
 	output, err := cmd.Output()
 	if err != nil {
 		log.Fatalf("Error checking free space: %v", err)
@@ -38,9 +38,9 @@ func EnsureFreeSpace(config Config, resource, container, dir string) {
 	if err != nil {
 		log.Fatalf("Error parsing used percentage: %v", err)
 	}
-	if usedPercent >= config.ThresholdSpaceUsedPercent {
-		log.Fatalf("Not enough free space. Used: %d%%, Threshold: %d%%", usedPercent, config.ThresholdSpaceUsedPercent)
+	if usedPercent >= thresholdSpaceUsedPercent {
+		log.Fatalf("Not enough free space. Used: %d%%, Threshold: %d%%", usedPercent, thresholdSpaceUsedPercent)
 	}
 
-	log.Printf("Free space check succeeded. Used: %d%%, Threshold: %d%%. Output:\n%s", usedPercent, config.ThresholdSpaceUsedPercent, string(output))
+	log.Printf("Free space check succeeded. Used: %d%%, Threshold: %d%%. Output:\n%s", usedPercent, thresholdSpaceUsedPercent, string(output))
 }

@@ -1,6 +1,6 @@
 # backup-ns.sh
 
-> NOTE: This is the previous bash reference implementation the is fully replace by the go implementation in the parent directory.
+> NOTE: This is the previous bash reference implementation that is fully replaced by the go implementation in the parent directory.
 
 k8s application-aware snapshots.
 
