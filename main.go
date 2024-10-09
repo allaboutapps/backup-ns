@@ -51,12 +51,12 @@ func main() {
 		lib.BackupMySQL(config.Namespace, config.DryRun, config.MySQL)
 	}
 
-	vsLabels := lib.GenerateVSLabels(config)
-	vsAnnotations := lib.GenerateVSAnnotations(config)
+	vsLabels := lib.GenerateVSLabels(config.Namespace, config.PVCName, config.LabelVS)
+	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
 
-	vsObject := lib.GenerateVSObject(config, vsName, vsLabels, vsAnnotations)
+	vsObject := lib.GenerateVSObject(config.Namespace, config.VSClassName, config.PVCName, vsName, vsLabels, vsAnnotations)
 
-	lib.CreateVolumeSnapshot(config, vsName, vsObject)
+	lib.CreateVolumeSnapshot(config.Namespace, config.DryRun, vsName, vsObject, config.VSWaitUntilReady, config.VSWaitUntilReadyTimeout)
 
 	log.Printf("Finished backup vs_name='%s' in namespace='%s'!", vsName, config.Namespace)
 }

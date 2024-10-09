@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 )
 
 // Config holds all the configuration options
@@ -17,10 +18,7 @@ type Config struct {
 	Namespace                 string
 	PVCName                   string
 	VSRand                    string
-	LabelVSType               string
-	LabelVSPod                string
-	LabelVSRetain             string
-	LabelVSRetainDays         int
+	LabelVS                   LabelVSConfig
 	VSNameTemplate            string
 	VSClassName               string
 	VSWaitUntilReady          bool
@@ -49,20 +47,22 @@ func LoadConfig() Config {
 		// A random string to make the volume snapshot name unique (apart from the timestamp)
 		VSRand: getEnv("BAK_VS_RAND", generateRandomString(6)),
 
-		// "backup-ns.sh/type" label value of volume snapshot (e.g. "adhoc" or custom backups, "cronjob" for recurring, etc.)
-		// This label is not used for any further selections and only for informational purposes.
-		LabelVSType: getEnv("BAK_LABEL_VS_TYPE", "adhoc"),
+		LabelVS: LabelVSConfig{
+			// "backup-ns.sh/type" label value of volume snapshot (e.g. "adhoc" or custom backups, "cronjob" for recurring, etc.)
+			// This label is not used for any further selections and only for informational purposes.
+			Type: getEnv("BAK_LABEL_VS_TYPE", "adhoc"),
 
-		// "backup-ns.sh/pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)
-		LabelVSPod: getEnv("BAK_LABEL_VS_POD", ""),
+			// "backup-ns.sh/pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)
+			Pod: getEnv("BAK_LABEL_VS_POD", ""),
 
-		// "backup-ns.sh/retain" label value. Currently supported values:
-		// "daily_weekly_monthly": keep as long as these label keys (key "backup-ns.sh/daily|weekly|monthly") are available on the vs
-		// "days": keep the vs for as long as the label value within key "backup-ns.sh/delete-after" says (YYYY-MM-DD)
-		LabelVSRetain: getEnv("BAK_LABEL_VS_RETAIN", "daily_weekly_monthly"),
+			// "backup-ns.sh/retain" label value. Currently supported values:
+			// "daily_weekly_monthly": keep as long as these label keys (key "backup-ns.sh/daily|weekly|monthly") are available on the vs
+			// "days": keep the vs for as long as the label value within key "backup-ns.sh/delete-after" says (YYYY-MM-DD)
+			Retain: getEnv("BAK_LABEL_VS_RETAIN", "daily_weekly_monthly"),
 
-		// The number of days to retain the snapshot if BAK_LABEL_VS_RETAIN is set to "days"
-		LabelVSRetainDays: getIntEnv("BAK_LABEL_VS_RETAIN_DAYS", 30),
+			// The number of days to retain the snapshot if BAK_LABEL_VS_RETAIN is set to "days"
+			RetainDays: getIntEnv("BAK_LABEL_VS_RETAIN_DAYS", 30),
+		},
 
 		// The (go template) of the name of the volume snapshot (will be evaluated after having the flock lock, if enabled)
 		VSNameTemplate: getEnv("BAK_VS_NAME_TEMPLATE", "{{ .pvcName }}-{{ .timestamp }}-{{ .rand }}"),

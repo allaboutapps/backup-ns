@@ -12,6 +12,13 @@ import (
 	"time"
 )
 
+type LabelVSConfig struct {
+	Type       string
+	Pod        string
+	Retain     string
+	RetainDays int
+}
+
 func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) string {
 	templ := template.Must(template.New("vsNameTemplate").Parse(vsNameTemplate))
 	var buf bytes.Buffer
@@ -29,15 +36,15 @@ func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) string
 	return buf.String()
 }
 
-func GenerateVSLabels(config Config) map[string]string {
+func GenerateVSLabels(namespace, pvcName string, config LabelVSConfig) map[string]string {
 	labels := map[string]string{
-		"backup-ns.sh/pvc":  config.PVCName,
-		"backup-ns.sh/type": config.LabelVSType,
+		"backup-ns.sh/pvc":  pvcName,
+		"backup-ns.sh/type": config.Type,
 	}
-	if config.LabelVSPod != "" {
-		labels["backup-ns.sh/pod"] = config.LabelVSPod
+	if config.Pod != "" {
+		labels["backup-ns.sh/pod"] = config.Pod
 	}
-	if config.LabelVSRetain == "daily_weekly_monthly" {
+	if config.Retain == "daily_weekly_monthly" {
 		now := time.Now()
 		labels["backup-ns.sh/retain"] = "daily_weekly_monthly"
 
@@ -47,19 +54,19 @@ func GenerateVSLabels(config Config) map[string]string {
 		weeklyLabel := now.Format("2006-") + fmt.Sprintf("w%02d", week)
 		monthlyLabel := now.Format("2006-01")
 
-		if !volumeSnapshotWithLabelValueExists(config.Namespace, "backup-ns.sh/daily", dailyLabel) {
+		if !volumeSnapshotWithLabelValueExists(namespace, "backup-ns.sh/daily", dailyLabel) {
 			labels["backup-ns.sh/daily"] = dailyLabel
 		}
-		if !volumeSnapshotWithLabelValueExists(config.Namespace, "backup-ns.sh/weekly", weeklyLabel) {
+		if !volumeSnapshotWithLabelValueExists(namespace, "backup-ns.sh/weekly", weeklyLabel) {
 			labels["backup-ns.sh/weekly"] = weeklyLabel
 		}
-		if !volumeSnapshotWithLabelValueExists(config.Namespace, "backup-ns.sh/monthly", monthlyLabel) {
+		if !volumeSnapshotWithLabelValueExists(namespace, "backup-ns.sh/monthly", monthlyLabel) {
 			labels["backup-ns.sh/monthly"] = monthlyLabel
 		}
-	} else if config.LabelVSRetain == "days" {
-		deleteAfter := time.Now().AddDate(0, 0, config.LabelVSRetainDays).Format("2006-01-02")
+	} else if config.Retain == "days" {
+		deleteAfter := time.Now().AddDate(0, 0, config.RetainDays).Format("2006-01-02")
 		labels["backup-ns.sh/retain"] = "days"
-		labels["backup-ns.sh/retain-days"] = strconv.Itoa(config.LabelVSRetainDays)
+		labels["backup-ns.sh/retain-days"] = strconv.Itoa(config.RetainDays)
 		labels["backup-ns.sh/delete-after"] = deleteAfter
 	}
 	return labels
@@ -76,12 +83,12 @@ func volumeSnapshotWithLabelValueExists(namespace, labelKey, labelValue string) 
 	return len(output) > 0
 }
 
-func GenerateVSAnnotations(config Config) map[string]string {
-	bakEnvVars := GetBAKEnvVars()
+// typically we'll only save the used safe env vars inside the env-config annotation
+func GenerateVSAnnotations(bakEnvVars map[string]string) map[string]string {
 	var envConfigLines []string
 
 	for key, value := range bakEnvVars {
-		envConfigLines = append(envConfigLines, fmt.Sprintf("%s=%s", key, value))
+		envConfigLines = append(envConfigLines, fmt.Sprintf("%s='%s'", key, value))
 	}
 
 	annotations := map[string]string{
@@ -90,34 +97,34 @@ func GenerateVSAnnotations(config Config) map[string]string {
 	return annotations
 }
 
-func GenerateVSObject(config Config, vsName string, labels, annotations map[string]string) map[string]interface{} {
+func GenerateVSObject(namespace, vsClassName, pvcName, vsName string, labels, annotations map[string]string) map[string]interface{} {
 	return map[string]interface{}{
 		"apiVersion": "snapshot.storage.k8s.io/v1",
 		"kind":       "VolumeSnapshot",
 		"metadata": map[string]interface{}{
 			"name":        vsName,
-			"namespace":   config.Namespace,
+			"namespace":   namespace,
 			"labels":      labels,
 			"annotations": annotations,
 		},
 		"spec": map[string]interface{}{
-			"volumeSnapshotClassName": config.VSClassName,
+			"volumeSnapshotClassName": vsClassName,
 			"source": map[string]interface{}{
-				"persistentVolumeClaimName": config.PVCName,
+				"persistentVolumeClaimName": pvcName,
 			},
 		},
 	}
 }
 
-func CreateVolumeSnapshot(config Config, vsName string, vsObject map[string]interface{}) {
+func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject map[string]interface{}, wait bool, waitTimeout string) {
 	stringifiedVSObject, err := json.MarshalIndent(vsObject, "", "  ")
 	if err != nil {
 		log.Fatalf("Error marshaling VolumeSnapshot object: %v", err)
 	}
 
-	log.Printf("Creating VolumeSnapshot '%s' in namespace '%s'...\n%s", vsName, config.Namespace, string(stringifiedVSObject))
+	log.Printf("Creating VolumeSnapshot '%s' in namespace '%s'...\n%s", vsName, namespace, string(stringifiedVSObject))
 
-	if config.DryRun {
+	if dryRun {
 		log.Println("Skipping VolumeSnapshot creation - dry run mode is active")
 		return
 	}
@@ -128,15 +135,15 @@ func CreateVolumeSnapshot(config Config, vsName string, vsObject map[string]inte
 	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "apply", "-f", "-", "-n", config.Namespace)
+	cmd := exec.Command("kubectl", "apply", "-f", "-", "-n", namespace)
 	cmd.Stdin = bytes.NewReader(vsJSON)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Fatalf("Error creating VolumeSnapshot: %v. Output:\n%s", err, string(output))
 	}
 
-	if config.VSWaitUntilReady {
-		log.Printf("Waiting for VolumeSnapshot '%s' to be ready (timeout: %s)...", vsName, config.VSWaitUntilReadyTimeout)
+	if wait {
+		log.Printf("Waiting for VolumeSnapshot '%s' to be ready (timeout: %s)...", vsName, waitTimeout)
 
 		// give kubectl some time to actually have a status field to wait for
 		// https://github.com/kubernetes/kubectl/issues/1204
@@ -144,7 +151,7 @@ func CreateVolumeSnapshot(config Config, vsName string, vsObject map[string]inte
 		time.Sleep(5 * time.Second)
 
 		// #nosec G204
-		cmd = exec.Command("kubectl", "wait", "--for=jsonpath={.status.readyToUse}=true", "--timeout", config.VSWaitUntilReadyTimeout, "volumesnapshot/"+vsName, "-n", config.Namespace)
+		cmd = exec.Command("kubectl", "wait", "--for=jsonpath={.status.readyToUse}=true", "--timeout", waitTimeout, "volumesnapshot/"+vsName, "-n", namespace)
 		// log.Println(cmd.String())
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -153,7 +160,7 @@ func CreateVolumeSnapshot(config Config, vsName string, vsObject map[string]inte
 	}
 
 	// #nosec G204
-	cmd = exec.Command("kubectl", "get", "volumesnapshot/"+vsName, "-n", config.Namespace)
+	cmd = exec.Command("kubectl", "get", "volumesnapshot/"+vsName, "-n", namespace)
 	output, err = cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Warning: Error getting VolumeSnapshot details: %v. Output:\n%s", err, string(output))
