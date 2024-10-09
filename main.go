@@ -487,7 +487,9 @@ func generateVSLabels(config Config) map[string]string {
 		labels["backup-ns.sh/retain"] = "daily_weekly_monthly"
 
 		dailyLabel := now.Format("2006-01-02")
-		weeklyLabel := now.Format("2006-w02")
+
+		_, week := time.Now().ISOWeek()
+		weeklyLabel := now.Format("2006-") + fmt.Sprintf("w%02d", week)
 		monthlyLabel := now.Format("2006-01")
 
 		if !volumeSnapshotWithLabelValueExists(config.Namespace, "backup-ns.sh/daily", dailyLabel) {
@@ -560,7 +562,13 @@ func generateVSObject(config Config, vsName string, labels, annotations map[stri
 }
 
 func createVolumeSnapshot(config Config, vsName string, vsObject map[string]interface{}) {
-	log.Printf("Creating VolumeSnapshot '%s' in namespace '%s'...", vsName, config.Namespace)
+	stringifiedVSObject, err := json.MarshalIndent(vsObject, "", "  ")
+	if err != nil {
+		log.Fatalf("Error marshaling VolumeSnapshot object: %v", err)
+	}
+
+	log.Printf("Creating VolumeSnapshot '%s' in namespace '%s'...\n%s", vsName, config.Namespace, string(stringifiedVSObject))
+
 	if config.DryRun {
 		log.Println("Skipping VolumeSnapshot creation - dry run mode is active")
 		return
@@ -574,26 +582,33 @@ func createVolumeSnapshot(config Config, vsName string, vsObject map[string]inte
 	// #nosec G204
 	cmd := exec.Command("kubectl", "apply", "-f", "-", "-n", config.Namespace)
 	cmd.Stdin = bytes.NewReader(vsJSON)
-	err = cmd.Run()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Fatalf("Error creating VolumeSnapshot: %v", err)
+		log.Fatalf("Error creating VolumeSnapshot: %v. Output:\n%s", err, string(output))
 	}
 
 	if config.VSWaitUntilReady {
 		log.Printf("Waiting for VolumeSnapshot '%s' to be ready (timeout: %s)...", vsName, config.VSWaitUntilReadyTimeout)
+
+		// give kubectl some time to actually have a status field to wait for
+		// https://github.com/kubernetes/kubectl/issues/1204
+		// https://github.com/kubernetes/kubernetes/pull/109525
+		time.Sleep(5 * time.Second)
+
 		// #nosec G204
-		cmd = exec.Command("kubectl", "wait", "--for=jsonpath='{.status.readyToUse}'=true", "--timeout", config.VSWaitUntilReadyTimeout, "volumesnapshot/"+vsName, "-n", config.Namespace)
-		err = cmd.Run()
+		cmd = exec.Command("kubectl", "wait", "--for=jsonpath={.status.readyToUse}=true", "--timeout", config.VSWaitUntilReadyTimeout, "volumesnapshot/"+vsName, "-n", config.Namespace)
+		// log.Println(cmd.String())
+		output, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Printf("Warning: VolumeSnapshot '%s' may not be ready: %v", vsName, err)
+			log.Printf("Warning: VolumeSnapshot '%s' may not be ready: %v. Output:\n%s", vsName, err, string(output))
 		}
 	}
 
 	// #nosec G204
 	cmd = exec.Command("kubectl", "get", "volumesnapshot/"+vsName, "-n", config.Namespace)
-	output, err := cmd.CombinedOutput()
+	output, err = cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Warning: Error getting VolumeSnapshot details: %v", err)
+		log.Printf("Warning: Error getting VolumeSnapshot details: %v. Output:\n%s", err, string(output))
 	} else {
 		log.Printf("VolumeSnapshot details:\n%s", string(output))
 	}

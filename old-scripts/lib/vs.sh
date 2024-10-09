@@ -53,7 +53,7 @@ vs_get_retain_labels_daily_weekly_monthly() {
     # hourly_label=$(date +"%Y-%m-%d-%H00")
 
     local daily_label; daily_label=$(date +"%Y-%m-%d")
-    local weekly_label; weekly_label=$(date +"%Y-w%V")
+    local weekly_label; weekly_label=$(date +"%Y-w%0V")
     local monthly_label; monthly_label=$(date +"%Y-%m")
 
     local labels=""
