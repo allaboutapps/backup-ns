@@ -14,7 +14,7 @@ type MySQLConfig struct {
 	DumpFile      string
 	Host          string
 	User          string
-	Password      string
+	Password      string `json:"-"` // sensitive
 	DB            string
 }
 

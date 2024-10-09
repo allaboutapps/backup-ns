@@ -10,9 +10,8 @@ import (
 func main() {
 	config := lib.LoadConfig()
 
-	if config.Debug {
-		log.Println("Config:", config)
-	}
+	lib.PrintBAKEnvVars()
+	lib.PrintConfig(config)
 
 	if config.DryRun {
 		log.Println("Dry run mode is active, write operations are skipped!")

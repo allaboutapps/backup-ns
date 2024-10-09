@@ -13,7 +13,7 @@ type PostgresConfig struct {
 	ExecContainer string
 	DumpFile      string
 	User          string
-	Password      string
+	Password      string `json:"-"` // sensitive
 	DB            string
 }
 

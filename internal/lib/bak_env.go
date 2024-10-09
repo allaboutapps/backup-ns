@@ -2,6 +2,7 @@ package lib
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
@@ -34,9 +35,6 @@ func LoadConfig() Config {
 	return Config{
 		// If true, no actual dump/backup is performed, just a dry run to check if everything is in place (still exec into the target container)
 		DryRun: getBoolEnv("BAK_DRY_RUN", false),
-
-		// If true, the script will print out every command before executing it
-		Debug: getBoolEnv("BAK_DEBUG", false),
 
 		// The target namespace to backup
 		Namespace: getEnv("BAK_NAMESPACE", getCurrentNamespace()),
@@ -178,7 +176,7 @@ func getCurrentNamespace() string {
 	cmd := exec.Command("kubectl", "config", "view", "--minify", "--output", "jsonpath={..namespace}")
 	output, err := cmd.Output()
 	if err != nil {
-		log.Printf("Error getting current namespace: %v", err)
+		// log.Printf("Error getting current namespace: %v", err)
 		return "default"
 	}
 	return string(output)
@@ -209,4 +207,21 @@ func GetBAKEnvVars() map[string]string {
 		}
 	}
 	return envVars
+}
+
+func PrintBAKEnvVars() {
+	envVars := GetBAKEnvVars()
+	for key, value := range envVars {
+		log.Printf("%s='%s'\n", key, value)
+	}
+}
+
+func PrintConfig(config Config) {
+	c, err := json.MarshalIndent(config, "", "  ")
+
+	if err != nil {
+		log.Fatalf("Failed to printEnv")
+	}
+
+	log.Println("PrintConfig", string(c))
 }
