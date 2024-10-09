@@ -8,6 +8,7 @@ import (
 	"log"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -76,22 +77,15 @@ func volumeSnapshotWithLabelValueExists(namespace, labelKey, labelValue string) 
 }
 
 func GenerateVSAnnotations(config Config) map[string]string {
+	bakEnvVars := GetBAKEnvVars()
+	var envConfigLines []string
+
+	for key, value := range bakEnvVars {
+		envConfigLines = append(envConfigLines, fmt.Sprintf("%s=%s", key, value))
+	}
+
 	annotations := map[string]string{
-		"backup-ns.sh/env-config": fmt.Sprintf(`BAK_DB_POSTGRES=%t
-BAK_DB_POSTGRES_EXEC_RESOURCE=%s
-BAK_DB_POSTGRES_EXEC_CONTAINER=%s
-BAK_DB_POSTGRES_DUMP_FILE=%s
-BAK_DB_POSTGRES_USER=%s
-BAK_DB_POSTGRES_DB=%s
-BAK_DB_MYSQL=%t
-BAK_DB_MYSQL_EXEC_RESOURCE=%s
-BAK_DB_MYSQL_EXEC_CONTAINER=%s
-BAK_DB_MYSQL_DUMP_FILE=%s
-BAK_DB_MYSQL_HOST=%s
-BAK_DB_MYSQL_USER=%s
-BAK_DB_MYSQL_DB=%s`,
-			config.Postgres.Enabled, config.Postgres.ExecResource, config.Postgres.ExecContainer, config.Postgres.DumpFile, config.Postgres.User, config.Postgres.DB,
-			config.MySQL.Enabled, config.MySQL.ExecResource, config.MySQL.ExecContainer, config.MySQL.DumpFile, config.MySQL.Host, config.MySQL.User, config.MySQL.DB),
+		"backup-ns.sh/env-config": strings.Join(envConfigLines, "\n"),
 	}
 	return annotations
 }
