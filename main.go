@@ -84,12 +84,14 @@ func main() {
 	ensurePVCAvailable(config)
 
 	if config.DBPostgres {
+		ensureResourceAvailable(config.Namespace, config.DBPostgresExecResource)
 		ensurePostgresAvailable(config)
 		ensureFreeSpace(config, config.DBPostgresExecResource, config.DBPostgresExecContainer, filepath.Dir(config.DBPostgresDumpFile))
 		backupPostgres(config)
 	}
 
 	if config.DBMySQL {
+		ensureResourceAvailable(config.Namespace, config.DBMySQLExecResource)
 		ensureMySQLAvailable(config)
 		ensureFreeSpace(config, config.DBMySQLExecResource, config.DBMySQLExecContainer, filepath.Dir(config.DBMySQLDumpFile))
 		backupMySQL(config)
@@ -115,7 +117,7 @@ func loadConfig() Config {
 		Debug:                     getBoolEnv("BAK_DEBUG", false),
 		Namespace:                 getEnv("BAK_NAMESPACE", getCurrentNamespace()),
 		PVCName:                   getEnv("BAK_PVC_NAME", "data"),
-		VSRand:                    getEnv("BAK_VS_RAND", generateRandomString()),
+		VSRand:                    getEnv("BAK_VS_RAND", generateRandomString(6)),
 		LabelVSType:               getEnv("BAK_LABEL_VS_TYPE", "adhoc"),
 		LabelVSPod:                getEnv("BAK_LABEL_VS_POD", ""),
 		LabelVSRetain:             getEnv("BAK_LABEL_VS_RETAIN", "daily_weekly_monthly"),
@@ -185,9 +187,9 @@ func getCurrentNamespace() string {
 	return string(output)
 }
 
-func generateRandomString() string {
+func generateRandomString(n int) string {
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
-	b := make([]rune, 6)
+	b := make([]rune, n)
 	for i := range b {
 		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letterRunes))))
 		if err != nil {
@@ -267,10 +269,24 @@ func ensurePVCAvailable(config Config) {
 	log.Printf("Checking if PVC '%s' exists in namespace '%s'...", config.PVCName, config.Namespace)
 	// #nosec G204
 	cmd := exec.Command("kubectl", "get", "pvc", config.PVCName, "-n", config.Namespace)
-	err := cmd.Run()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Fatalf("PVC '%s' not found in namespace '%s'", config.PVCName, config.Namespace)
 	}
+	log.Printf("PVC '%s' is available in namespace '%s'. Output:\n%s", config.PVCName, config.Namespace, string(output))
+}
+
+func ensureResourceAvailable(namespace string, resource string) {
+	log.Printf("Checking if resource '%s' exists in namespace '%s'...", resource, namespace)
+
+	cmd := exec.Command("kubectl", "get", "-n", namespace, resource, "-o", "wide")
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		log.Printf("Error checking resource availability: %v\nOutput: %s", err, string(output))
+		log.Fatalf("Resource '%s' not available in namespace '%s'", resource, namespace)
+	}
+	log.Printf("Resource '%s' is available in namespace '%s'. Output:\n%s", resource, namespace, string(output))
 }
 
 func ensurePostgresAvailable(config Config) {
@@ -298,7 +314,7 @@ func ensurePostgresAvailable(config Config) {
 		log.Printf("Error checking Postgres availability: %v\nOutput: %s", err, string(output))
 		log.Fatalf("Postgres not available in namespace '%s'", config.Namespace)
 	}
-	log.Printf("Postgres is available in namespace '%s'", config.Namespace)
+	log.Printf("Postgres is available in namespace '%s'. Output:\n%s", config.Namespace, string(output))
 }
 
 func ensureMySQLAvailable(config Config) {
@@ -331,7 +347,7 @@ func ensureMySQLAvailable(config Config) {
 		log.Printf("Error checking MySQL availability: %v\nOutput: %s", err, string(output))
 		log.Fatalf("MySQL not available in namespace '%s'", config.Namespace)
 	}
-	log.Printf("MySQL is available in namespace '%s'", config.Namespace)
+	log.Printf("MySQL is available in namespace '%s'. Output:\n%s", config.Namespace, string(output))
 }
 
 func ensureFreeSpace(config Config, resource, container, dir string) {
@@ -357,8 +373,12 @@ func ensureFreeSpace(config Config, resource, container, dir string) {
 	if usedPercent >= config.ThresholdSpaceUsedPercent {
 		log.Fatalf("Not enough free space. Used: %d%%, Threshold: %d%%", usedPercent, config.ThresholdSpaceUsedPercent)
 	}
+
+	log.Printf("Free space check succeeded. Used: %d%%, Threshold: %d%%. Output:\n%s", usedPercent, config.ThresholdSpaceUsedPercent, string(output))
 }
 
+// TODO: find a way to kill the remote process (e.g. pgdump / mysqldump) the exec command started
+// in the case if origin process on the host terminates (or if we lose connection?)
 func backupPostgres(config Config) {
 	if config.DryRun {
 		log.Println("Skipping Postgres backup - dry run mode is active")
@@ -419,7 +439,18 @@ func backupMySQL(config Config) {
 		trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f %s && df -h %s; exit $exit_code' EXIT
 		
 		# create dump and pipe to gzip archive (default password injected via above MYSQL_PWD)
-		mysqldump --host=%s --user=%s --default-character-set=utf8 --add-locks --set-charset --compact --create-options --add-drop-table --lock-tables %s | gzip -c > %s
+		mysqldump \
+            --host%s \
+            --user %s \
+            --default-character-set=utf8 \
+            --add-locks \
+            --set-charset \
+            --compact \
+            --create-options \
+            --add-drop-table \
+            --lock-tables \
+            %s \
+            | gzip -c > %s
 		
 		# print dump file info
 		ls -lha %s
