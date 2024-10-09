@@ -70,7 +70,7 @@ func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) {
 		
 		# create dump and pipe to gzip archive (default password injected via above MYSQL_PWD)
 		mysqldump \
-            --host%s \
+            --host %s \
             --user %s \
             --default-character-set=utf8 \
             --add-locks \
