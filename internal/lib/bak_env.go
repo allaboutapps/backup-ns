@@ -196,3 +196,17 @@ func generateRandomString(n int) string {
 	}
 	return string(b)
 }
+
+// GetBAKEnvVars returns all environment variables starting with "BAK_", excluding secrets
+func GetBAKEnvVars() map[string]string {
+	envVars := make(map[string]string)
+	for _, env := range os.Environ() {
+		if parts := strings.SplitN(env, "=", 2); len(parts) == 2 {
+			key, value := parts[0], parts[1]
+			if strings.HasPrefix(key, "BAK_") && !strings.Contains(key, "PASSWORD") {
+				envVars[key] = value
+			}
+		}
+	}
+	return envVars
+}
