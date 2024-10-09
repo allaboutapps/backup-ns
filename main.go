@@ -113,40 +113,110 @@ func main() {
 
 func loadConfig() Config {
 	return Config{
-		DryRun:                    getBoolEnv("BAK_DRY_RUN", false),
-		Debug:                     getBoolEnv("BAK_DEBUG", false),
-		Namespace:                 getEnv("BAK_NAMESPACE", getCurrentNamespace()),
-		PVCName:                   getEnv("BAK_PVC_NAME", "data"),
-		VSRand:                    getEnv("BAK_VS_RAND", generateRandomString(6)),
-		LabelVSType:               getEnv("BAK_LABEL_VS_TYPE", "adhoc"),
-		LabelVSPod:                getEnv("BAK_LABEL_VS_POD", ""),
-		LabelVSRetain:             getEnv("BAK_LABEL_VS_RETAIN", "daily_weekly_monthly"),
-		LabelVSRetainDays:         getIntEnv("BAK_LABEL_VS_RETAIN_DAYS", 30),
-		VSNameTemplate:            getEnv("BAK_VS_NAME_TEMPLATE", "${BAK_PVC_NAME}-$(date +\"%Y-%m-%d-%H%M%S\")-${BAK_VS_RAND}"),
-		VSClassName:               getEnv("BAK_VS_CLASS_NAME", "a3cloud-csi-gce-pd"), // should have "Retain" deletion policy!
-		VSWaitUntilReady:          getBoolEnv("BAK_VS_WAIT_UNTIL_READY", true),
-		VSWaitUntilReadyTimeout:   getEnv("BAK_VS_WAIT_UNTIL_READY_TIMEOUT", "15m"),
+		// If true, no actual dump/backup is performed, just a dry run to check if everything is in place (still exec into the target container)
+		DryRun: getBoolEnv("BAK_DRY_RUN", false),
+
+		// If true, the script will print out every command before executing it
+		Debug: getBoolEnv("BAK_DEBUG", false),
+
+		// The target namespace to backup
+		Namespace: getEnv("BAK_NAMESPACE", getCurrentNamespace()),
+
+		// The name of the PVC to backup, the vs will also be labeled via the key "backup-ns.sh/pvc"
+		PVCName: getEnv("BAK_PVC_NAME", "data"),
+
+		// A random string to make the volume snapshot name unique (apart from the timestamp)
+		VSRand: getEnv("BAK_VS_RAND", generateRandomString(6)),
+
+		// "backup-ns.sh/type" label value of volume snapshot (e.g. "adhoc" or custom backups, "cronjob" for recurring, etc.)
+		// This label is not used for any further selections and only for informational purposes.
+		LabelVSType: getEnv("BAK_LABEL_VS_TYPE", "adhoc"),
+
+		// "backup-ns.sh/pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)
+		LabelVSPod: getEnv("BAK_LABEL_VS_POD", ""),
+
+		// "backup-ns.sh/retain" label value. Currently supported values:
+		// "daily_weekly_monthly": keep as long as these label keys (key "backup-ns.sh/daily|weekly|monthly") are available on the vs
+		// "days": keep the vs for as long as the label value within key "backup-ns.sh/delete-after" says (YYYY-MM-DD)
+		LabelVSRetain: getEnv("BAK_LABEL_VS_RETAIN", "daily_weekly_monthly"),
+
+		// The number of days to retain the snapshot if BAK_LABEL_VS_RETAIN is set to "days"
+		LabelVSRetainDays: getIntEnv("BAK_LABEL_VS_RETAIN_DAYS", 30),
+
+		// The name of the volume snapshot can be templated (will be evaluated after having the flock lock, if enabled)
+		VSNameTemplate: getEnv("BAK_VS_NAME_TEMPLATE", "${BAK_PVC_NAME}-$(date +\"%Y-%m-%d-%H%M%S\")-${BAK_VS_RAND}"),
+
+		// The name of the volume snapshot class to use
+		VSClassName: getEnv("BAK_VS_CLASS_NAME", "a3cloud-csi-gce-pd"), // should have "Retain" deletion policy!
+
+		// If true, the script will wait until the snapshot is actually ready (useable)
+		VSWaitUntilReady: getBoolEnv("BAK_VS_WAIT_UNTIL_READY", true),
+
+		// The timeout to wait for the snapshot to be ready (as go formatted duration spec)
+		VSWaitUntilReadyTimeout: getEnv("BAK_VS_WAIT_UNTIL_READY_TIMEOUT", "15m"),
+
+		// The max allowed used space of the disk mounted at the dump dir before the backup fails
 		ThresholdSpaceUsedPercent: getIntEnv("BAK_THRESHOLD_SPACE_USED_PERCENTAGE", 90),
-		DBSkip:                    getBoolEnv("BAK_DB_SKIP", false),
-		DBPostgres:                getBoolEnv("BAK_DB_POSTGRES", false),
-		DBPostgresExecResource:    getEnv("BAK_DB_POSTGRES_EXEC_RESOURCE", "deployment/app-base"),
-		DBPostgresExecContainer:   getEnv("BAK_DB_POSTGRES_EXEC_CONTAINER", "postgres"),
-		DBPostgresDumpFile:        getEnv("BAK_DB_POSTGRES_DUMP_FILE", "/var/lib/postgresql/data/dump.sql.gz"),
-		DBPostgresUser:            getEnv("BAK_DB_POSTGRES_USER", "${POSTGRES_USER}"),
-		DBPostgresPassword:        getEnv("BAK_DB_POSTGRES_PASSWORD", "${POSTGRES_PASSWORD}"),
-		DBPostgresDB:              getEnv("BAK_DB_POSTGRES_DB", "${POSTGRES_DB}"),
-		DBMySQL:                   getBoolEnv("BAK_DB_MYSQL", false),
-		DBMySQLExecResource:       getEnv("BAK_DB_MYSQL_EXEC_RESOURCE", "deployment/app-base"),
-		DBMySQLExecContainer:      getEnv("BAK_DB_MYSQL_EXEC_CONTAINER", "mysql"),
-		DBMySQLDumpFile:           getEnv("BAK_DB_MYSQL_DUMP_FILE", "/var/lib/mysql/dump.sql.gz"),
-		DBMySQLHost:               getEnv("BAK_DB_MYSQL_HOST", "127.0.0.1"),
-		DBMySQLUser:               getEnv("BAK_DB_MYSQL_USER", "root"),
-		DBMySQLPassword:           getEnv("BAK_DB_MYSQL_PASSWORD", "${MYSQL_ROOT_PASSWORD}"),
-		DBMySQLDB:                 getEnv("BAK_DB_MYSQL_DB", "${MYSQL_DATABASE}"),
-		Flock:                     getBoolEnv("BAK_FLOCK", false),
-		FlockCount:                getIntEnv("BAK_FLOCK_COUNT", getDefaultFlockCount()),
-		FlockDir:                  getEnv("BAK_FLOCK_DIR", "/mnt/host-backup-locks"),
-		FlockTimeoutSec:           getIntEnv("BAK_FLOCK_TIMEOUT_SEC", 3600),
+
+		// If true, no application-aware backup is performed (no db - useful for testing the snapshot creation only)
+		DBSkip: getBoolEnv("BAK_DB_SKIP", false),
+
+		// If true, a postgresql dump is created before the snapshot
+		DBPostgres: getBoolEnv("BAK_DB_POSTGRES", false),
+
+		// The k8s resource to exec into to create the dump
+		DBPostgresExecResource: getEnv("BAK_DB_POSTGRES_EXEC_RESOURCE", "deployment/app-base"),
+
+		// The container inside the above resource to exec into to create the dump
+		DBPostgresExecContainer: getEnv("BAK_DB_POSTGRES_EXEC_CONTAINER", "postgres"),
+
+		// The file inside the container to store the dump
+		DBPostgresDumpFile: getEnv("BAK_DB_POSTGRES_DUMP_FILE", "/var/lib/postgresql/data/dump.sql.gz"),
+
+		// The postgresql user to use for connecting/creating the dump (psql and pg_dump must be allowed)
+		DBPostgresUser: getEnv("BAK_DB_POSTGRES_USER", "${POSTGRES_USER}"),
+
+		// The postgresql password to use for connecting/creating the dump
+		DBPostgresPassword: getEnv("BAK_DB_POSTGRES_PASSWORD", "${POSTGRES_PASSWORD}"),
+
+		// The postgresql database to use for connecting/creating the dump
+		DBPostgresDB: getEnv("BAK_DB_POSTGRES_DB", "${POSTGRES_DB}"),
+
+		// If true, a mysql dump is created before the snapshot
+		DBMySQL: getBoolEnv("BAK_DB_MYSQL", false),
+
+		// The k8s resource to exec into to create the dump
+		DBMySQLExecResource: getEnv("BAK_DB_MYSQL_EXEC_RESOURCE", "deployment/app-base"),
+
+		// The container inside the above resource to exec into to create the dump
+		DBMySQLExecContainer: getEnv("BAK_DB_MYSQL_EXEC_CONTAINER", "mysql"),
+
+		// The file inside the container to store the dump
+		DBMySQLDumpFile: getEnv("BAK_DB_MYSQL_DUMP_FILE", "/var/lib/mysql/dump.sql.gz"),
+
+		// The mysql host to use for connecting/creating the dump
+		DBMySQLHost: getEnv("BAK_DB_MYSQL_HOST", "127.0.0.1"),
+
+		// The mysql user to use for connecting/creating the dump
+		DBMySQLUser: getEnv("BAK_DB_MYSQL_USER", "root"),
+
+		// The mysql password to use for connecting/creating the dump
+		DBMySQLPassword: getEnv("BAK_DB_MYSQL_PASSWORD", "${MYSQL_ROOT_PASSWORD}"),
+
+		// The mysql database to use for connecting/creating the dump
+		DBMySQLDB: getEnv("BAK_DB_MYSQL_DB", "${MYSQL_DATABASE}"),
+
+		// If true, flock is used to coordinate concurrent backup script execution, e.g. controlling per k8s node backup script concurrency
+		Flock: getBoolEnv("BAK_FLOCK", false),
+
+		// The number of concurrent backup scripts allowed to run
+		FlockCount: getIntEnv("BAK_FLOCK_COUNT", getDefaultFlockCount()),
+
+		// The dir in which we will create file locks to coordinate multiple running backup-ns.sh jobs
+		FlockDir: getEnv("BAK_FLOCK_DIR", "/mnt/host-backup-locks"),
+
+		// The timeout in seconds to wait for the flock lock until we exit 1
+		FlockTimeoutSec: getIntEnv("BAK_FLOCK_TIMEOUT_SEC", 3600),
 	}
 }
 
