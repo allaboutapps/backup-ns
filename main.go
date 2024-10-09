@@ -454,9 +454,20 @@ func generateVSLabels(config Config) map[string]string {
 	if config.LabelVSRetain == "daily_weekly_monthly" {
 		now := time.Now()
 		labels["backup-ns.sh/retain"] = "daily_weekly_monthly"
-		labels["backup-ns.sh/daily"] = now.Format("2006-01-02")
-		labels["backup-ns.sh/weekly"] = now.Format("2006-w02")
-		labels["backup-ns.sh/monthly"] = now.Format("2006-01")
+
+		dailyLabel := now.Format("2006-01-02")
+		weeklyLabel := now.Format("2006-w02")
+		monthlyLabel := now.Format("2006-01")
+
+		if !volumeSnapshotExists(config.Namespace, "backup-ns.sh/daily", dailyLabel) {
+			labels["backup-ns.sh/daily"] = dailyLabel
+		}
+		if !volumeSnapshotExists(config.Namespace, "backup-ns.sh/weekly", weeklyLabel) {
+			labels["backup-ns.sh/weekly"] = weeklyLabel
+		}
+		if !volumeSnapshotExists(config.Namespace, "backup-ns.sh/monthly", monthlyLabel) {
+			labels["backup-ns.sh/monthly"] = monthlyLabel
+		}
 	} else if config.LabelVSRetain == "days" {
 		deleteAfter := time.Now().AddDate(0, 0, config.LabelVSRetainDays).Format("2006-01-02")
 		labels["backup-ns.sh/retain"] = "days"
@@ -464,6 +475,16 @@ func generateVSLabels(config Config) map[string]string {
 		labels["backup-ns.sh/delete-after"] = deleteAfter
 	}
 	return labels
+}
+
+func volumeSnapshotExists(namespace, labelKey, labelValue string) bool {
+	cmd := exec.Command("kubectl", "get", "volumesnapshot", "-n", namespace, "-l", fmt.Sprintf("%s=%s", labelKey, labelValue), "-o", "name")
+	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("Error checking for existing VolumeSnapshot: %v", err)
+		return false
+	}
+	return len(output) > 0
 }
 
 func generateVSAnnotations(config Config) map[string]string {
