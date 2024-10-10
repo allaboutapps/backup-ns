@@ -32,4 +32,4 @@ tmp
 .env
 .aider*
 
-deploy/backup-ns.tmp.yaml
+deploy/*.tmp.yaml

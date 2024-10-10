@@ -1,0 +1,99 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "backup-ns.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "backup-ns.labels" . | nindent 4 }}
+  annotations:
+    a3c-validate-prefer-explicit-pod-strategy: "Recreate"
+spec:
+  schedule: {{ .Values.schedule }}
+  timeZone: {{ .Values.timeZone }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2 # retry three times.
+      activeDeadlineSeconds: 10800 # 3h max time before considered failed
+      template:
+        metadata:
+          {{- with .Values.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          labels:
+            {{- include "backup-ns.labels" . | nindent 12 }}
+            {{- with .Values.podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: {{ include "backup-ns.serviceAccountName" . }}
+          restartPolicy: Never # do not try to restart the container itself (full pod instead)
+          priorityClassName: {{ .Values.priorityClassName }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+
+          {{- if .Values.schedulerName }}
+          schedulerName: {{ .Values.schedulerName  | quote }}
+          {{- end }}
+          {{- if .Values.priorityClassName }}
+          priorityClassName: {{ .Values.priorityClassName }}
+          {{- end }}
+
+          initContainers:
+          - name: init-permissions
+            image: busybox:1.26.2
+            command: ["sh", "-c", "chmod 777 /mnt/host-backup-locks"]
+            {{- with .Values.volumeMounts }}
+            volumeMounts:
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          containers:
+          - name: {{ .Chart.Name }}
+            securityContext:
+              {{- toYaml .Values.securityContext | nindent 14 }}
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            envFrom:
+            - configMapRef:
+                name: {{ include "backup-ns.fullname" . }}-env
+            env:
+            - name: BAK_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: BAK_LABEL_VS_POD
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            resources:
+              {{- toYaml .Values.resources | nindent 14 }}
+
+            {{- with .Values.volumeMounts }}
+            volumeMounts:
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          {{- with .Values.volumes }}
+          volumes:
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
