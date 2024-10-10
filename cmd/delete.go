@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -36,31 +37,32 @@ func runDelete(_ *cobra.Command, args []string) {
 		var err error
 		namespace, err = getCurrentNamespace()
 		if err != nil {
-			fmt.Printf("Error getting current namespace: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("Error getting current namespace from context: %v\n", err)
 		}
 	}
+
+	log.Printf("Using namespace '%s'.\n", namespace)
 
 	// Get the VolumeSnapshotContent name
 	vscName, err := getVolumeSnapshotContentName(namespace, volumeSnapshotName)
 	if err != nil {
-		fmt.Printf("Error getting VolumeSnapshotContent name: %v\n", err)
+		log.Printf("Error getting VolumeSnapshotContent name: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Patch the VolumeSnapshotContent to set deletionPolicy to Delete
 	if err := patchVolumeSnapshotContent(vscName); err != nil {
-		fmt.Printf("Error patching VolumeSnapshotContent: %v\n", err)
+		log.Printf("Error patching VolumeSnapshotContent: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Delete the VolumeSnapshot
 	if err := deleteVolumeSnapshot(namespace, volumeSnapshotName); err != nil {
-		fmt.Printf("Error deleting VolumeSnapshot: %v\n", err)
+		log.Printf("Error deleting VolumeSnapshot: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully deleted VolumeSnapshot %s in namespace %s\n", volumeSnapshotName, namespace)
+	log.Printf("Successfully deleted VolumeSnapshot %s in namespace %s\n", volumeSnapshotName, namespace)
 }
 
 func getCurrentNamespace() (string, error) {
@@ -87,7 +89,7 @@ func patchVolumeSnapshotContent(vscName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to patch VolumeSnapshotContent: %w, output: %s", err, output)
 	}
-	fmt.Printf("Successfully patched VolumeSnapshotContent %s deletionPolicy to 'Delete'\n", vscName)
+	log.Printf("Successfully patched VolumeSnapshotContent %s deletionPolicy to 'Delete'\n", vscName)
 	return nil
 }
 
