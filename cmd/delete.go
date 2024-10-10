@@ -9,26 +9,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var namespace string
+
 // deleteCmd represents the delete command
 var deleteCmd = &cobra.Command{
-	Use:   "delete <namespace> <volumesnapshot>",
+	Use:   "delete <volumesnapshot>",
 	Short: "Deletes an application-aware snapshot (autopatches the vsc to deletionPolicy=delete first)",
 	Long: `This command deletes a VolumeSnapshot and its associated VolumeSnapshotContent,
 ensuring that the underlying storage is also deleted. It first patches the
 VolumeSnapshotContent's deletionPolicy to "Delete" before deleting the VolumeSnapshot.
 
 CAUTION: This is a destructive operation and should be used with care!`,
-	Args: cobra.ExactArgs(2),
+	Args: cobra.ExactArgs(1),
 	Run:  runDelete,
 }
 
 func init() {
 	rootCmd.AddCommand(deleteCmd)
+	deleteCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the VolumeSnapshot (defaults to the current namespace in the context)")
 }
 
 func runDelete(_ *cobra.Command, args []string) {
-	namespace := args[0]
-	volumeSnapshotName := args[1]
+	volumeSnapshotName := args[0]
+
+	if namespace == "" {
+		var err error
+		namespace, err = getCurrentNamespace()
+		if err != nil {
+			fmt.Printf("Error getting current namespace: %v\n", err)
+			os.Exit(1)
+		}
+	}
 
 	// Get the VolumeSnapshotContent name
 	vscName, err := getVolumeSnapshotContentName(namespace, volumeSnapshotName)
@@ -50,6 +61,15 @@ func runDelete(_ *cobra.Command, args []string) {
 	}
 
 	fmt.Printf("Successfully deleted VolumeSnapshot %s in namespace %s\n", volumeSnapshotName, namespace)
+}
+
+func getCurrentNamespace() (string, error) {
+	cmd := exec.Command("kubectl", "config", "view", "--minify", "--output", "jsonpath={..namespace}")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("error getting current namespace: %w", err)
+	}
+	return string(output), nil
 }
 
 func getVolumeSnapshotContentName(namespace, volumeSnapshotName string) (string, error) {
