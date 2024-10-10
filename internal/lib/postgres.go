@@ -7,16 +7,6 @@ import (
 	"path/filepath"
 )
 
-type PostgresConfig struct {
-	Enabled       bool
-	ExecResource  string
-	ExecContainer string
-	DumpFile      string
-	User          string
-	Password      string `json:"-"` // sensitive
-	DB            string
-}
-
 func EnsurePostgresAvailable(namespace string, config PostgresConfig) {
 	log.Printf("Checking if Postgres is available in namespace '%s'...", namespace)
 

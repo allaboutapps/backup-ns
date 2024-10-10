@@ -7,17 +7,6 @@ import (
 	"path/filepath"
 )
 
-type MySQLConfig struct {
-	Enabled       bool
-	ExecResource  string
-	ExecContainer string
-	DumpFile      string
-	Host          string
-	User          string
-	Password      string `json:"-"` // sensitive
-	DB            string
-}
-
 func EnsureMySQLAvailable(namespace string, config MySQLConfig) {
 	log.Printf("Checking if MySQL is available in namespace '%s'...", namespace)
 

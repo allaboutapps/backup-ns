@@ -15,13 +15,6 @@ import (
 	"time"
 )
 
-type FlockConfig struct {
-	Enabled    bool
-	Count      int
-	Dir        string
-	TimeoutSec int
-}
-
 func FlockShuffleLockFile(dir string, count int) string {
 	n, err := rand.Int(rand.Reader, big.NewInt(int64(count)))
 	if err != nil {

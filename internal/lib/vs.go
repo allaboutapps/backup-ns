@@ -12,13 +12,6 @@ import (
 	"time"
 )
 
-type LabelVSConfig struct {
-	Type       string
-	Pod        string
-	Retain     string
-	RetainDays int
-}
-
 func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) string {
 	templ := template.Must(template.New("vsNameTemplate").Parse(vsNameTemplate))
 	var buf bytes.Buffer

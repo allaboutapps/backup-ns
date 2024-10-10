@@ -14,21 +14,55 @@ import (
 
 // Config holds all the configuration options
 type Config struct {
-	DryRun                    bool
-	Debug                     bool
-	Namespace                 string
-	PVCName                   string
-	VSRand                    string
+	DryRun                    bool   `json:"BAK_DRY_RUN"`
+	Namespace                 string `json:"BAK_NAMESPACE"`
+	PVCName                   string `json:"BAK_PVC_NAME"`
+	VSRand                    string `json:"BAK_VS_RAND"`
 	LabelVS                   LabelVSConfig
-	VSNameTemplate            string
-	VSClassName               string
-	VSWaitUntilReady          bool
-	VSWaitUntilReadyTimeout   string
-	ThresholdSpaceUsedPercent int
-	DBSkip                    bool
+	VSNameTemplate            string `json:"BAK_VS_NAME_TEMPLATE"`
+	VSClassName               string `json:"BAK_VS_CLASS_NAME"`
+	VSWaitUntilReady          bool   `json:"BAK_VS_WAIT_UNTIL_READY"`
+	VSWaitUntilReadyTimeout   string `json:"BAK_VS_WAIT_UNTIL_READY_TIMEOUT"`
+	ThresholdSpaceUsedPercent int    `json:"BAK_THRESHOLD_SPACE_USED_PERCENTAGE"`
+	DBSkip                    bool   `json:"BAK_DB_SKIP"`
 	Postgres                  PostgresConfig
 	MySQL                     MySQLConfig
 	Flock                     FlockConfig
+}
+
+type LabelVSConfig struct {
+	Type       string `json:"BAK_LABEL_VS_TYPE"`
+	Pod        string `json:"BAK_LABEL_VS_POD"`
+	Retain     string `json:"BAK_LABEL_VS_RETAIN"`
+	RetainDays int    `json:"BAK_LABEL_VS_RETAIN_DAYS"`
+}
+
+type PostgresConfig struct {
+	Enabled       bool   `json:"BAK_DB_POSTGRES"`
+	ExecResource  string `json:"BAK_DB_POSTGRES_EXEC_RESOURCE"`
+	ExecContainer string `json:"BAK_DB_POSTGRES_EXEC_CONTAINER"`
+	DumpFile      string `json:"BAK_DB_POSTGRES_DUMP_FILE"`
+	User          string `json:"BAK_DB_POSTGRES_USER"`
+	Password      string `json:"-"` // sensitive
+	DB            string `json:"BAK_DB_POSTGRES_DB"`
+}
+
+type MySQLConfig struct {
+	Enabled       bool   `json:"BAK_DB_MYSQL"`
+	ExecResource  string `json:"BAK_DB_MYSQL_EXEC_RESOURCE"`
+	ExecContainer string `json:"BAK_DB_MYSQL_EXEC_CONTAINER"`
+	DumpFile      string `json:"BAK_DB_MYSQL_DUMP_FILE"`
+	Host          string `json:"BAK_DB_MYSQL_HOST"`
+	User          string `json:"BAK_DB_MYSQL_USER"`
+	Password      string `json:"-"` // sensitive
+	DB            string `json:"BAK_DB_MYSQL_DB"`
+}
+
+type FlockConfig struct {
+	Enabled    bool   `json:"BAK_FLOCK"`
+	Count      int    `json:"BAK_FLOCK_COUNT"`
+	Dir        string `json:"BAK_FLOCK_DIR"`
+	TimeoutSec int    `json:"BAK_FLOCK_TIMEOUT_SEC"`
 }
 
 func LoadConfig() Config {
