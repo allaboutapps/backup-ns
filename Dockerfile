@@ -112,6 +112,20 @@ RUN mkdir -p /tmp/yq \
     && cp "yq_linux_${ARCH}" /usr/local/bin/yq \
     && rm -rf /tmp/yq
 
+# helm
+# https://helm.sh/docs/intro/install/
+RUN set -x; HELM_TMP="$(mktemp -d)" \
+    && HELM_VERSION="3.16.0" \
+    && cd "${HELM_TMP}" \
+    && ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" \
+    && HELM="helm-v${HELM_VERSION}-linux-${ARCH}" \
+    && curl -fsSLO "https://get.helm.sh/${HELM}.tar.gz" \
+    && tar zxvf "${HELM}.tar.gz" \
+    && chmod +x linux-${ARCH}/helm \
+    && cp linux-${ARCH}/helm /usr/local/bin/helm \
+    && chown $USERNAME:$USERNAME /usr/local/bin/helm \
+    && rm -rf "${HELM_TMP}"
+
 # linux permissions / vscode support: Add user to avoid linux file permission issues
 # Detail: Inside the container, any mounted files/folders will have the exact same permissions
 # as outside the container - including the owner user ID (UID) and group ID (GID). 

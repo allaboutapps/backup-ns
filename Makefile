@@ -5,6 +5,7 @@
 # first is default target when running "make" without args
 build: ##- Default 'make' target: go-format, go-build and lint.
 	@$(MAKE) go-format
+	@$(MAKE) helm
 	@$(MAKE) go-build
 	@$(MAKE) lint
 
@@ -15,7 +16,7 @@ all: init ##- Runs all of our common make targets: clean, init, build and test.
 
 watch: ##- Watches for changes and runs 'make build' on modifications.
 	@echo Watching. Use Ctrl-c to exit.
-	watchexec -r -w . --exts go $(MAKE) build
+	watchexec -r -w . --exts go,yaml -i deploy/backup-ns.tmp.yaml $(MAKE) build
 
 info: ##- Prints info about go.mod updates and current go version.
 	@$(MAKE) get-go-outdated-modules
@@ -26,6 +27,9 @@ lint: ##- (opt) Runs golangci-lint.
 
 go-format: ##- (opt) Runs go format.
 	go fmt ./...
+
+helm:
+	helm template ./deploy/backup-ns > ./deploy/backup-ns.tmp.yaml
 
 go-build: ##- (opt) Runs go build.
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/app-linux-arm64
