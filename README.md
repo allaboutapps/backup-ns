@@ -7,6 +7,7 @@ Focus:
 * Swiss-army knife for application-aware k8s backup and restore without the need for operators or CRDs.
 * Cronjobs for backup and retention.
 * Low-dependency (e.g. only `testify` for testing, cobra for cli entrypoint), only `kubectl` must be in the `PATH` and working.
+* Use the clis within the already running container to do the backup (same version)
 
 > Note that the README is WIP!
 
