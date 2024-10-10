@@ -3,31 +3,79 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 // deleteCmd represents the delete command
 var deleteCmd = &cobra.Command{
-	Use:   "delete",
+	Use:   "delete <namespace> <volumesnapshot>",
 	Short: "Deletes an application-aware snapshot (autopatches the vsc to deletionPolicy=delete first)",
-	// Long: `...`,
-	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Println("not implemented")
-		os.Exit(1)
-	},
+	Long: `This command deletes a VolumeSnapshot and its associated VolumeSnapshotContent,
+ensuring that the underlying storage is also deleted. It first patches the
+VolumeSnapshotContent's deletionPolicy to "Delete" before deleting the VolumeSnapshot.
+
+CAUTION: This is a destructive operation and should be used with care!`,
+	Args: cobra.ExactArgs(2),
+	Run:  runDelete,
 }
 
 func init() {
 	rootCmd.AddCommand(deleteCmd)
+}
 
-	// Here you will define your flags and configuration settings.
+func runDelete(cmd *cobra.Command, args []string) {
+	namespace := args[0]
+	volumeSnapshotName := args[1]
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// deleteCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// Get the VolumeSnapshotContent name
+	vscName, err := getVolumeSnapshotContentName(namespace, volumeSnapshotName)
+	if err != nil {
+		fmt.Printf("Error getting VolumeSnapshotContent name: %v\n", err)
+		os.Exit(1)
+	}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// deleteCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Patch the VolumeSnapshotContent to set deletionPolicy to Delete
+	if err := patchVolumeSnapshotContent(vscName); err != nil {
+		fmt.Printf("Error patching VolumeSnapshotContent: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Delete the VolumeSnapshot
+	if err := deleteVolumeSnapshot(namespace, volumeSnapshotName); err != nil {
+		fmt.Printf("Error deleting VolumeSnapshot: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully deleted VolumeSnapshot %s in namespace %s\n", volumeSnapshotName, namespace)
+}
+
+func getVolumeSnapshotContentName(namespace, volumeSnapshotName string) (string, error) {
+	cmd := exec.Command("kubectl", "get", "volumesnapshot", volumeSnapshotName, "-n", namespace, "-o", "jsonpath={.status.boundVolumeSnapshotContentName}")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get VolumeSnapshotContent name: %v, output: %s", err, output)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func patchVolumeSnapshotContent(vscName string) error {
+	patchCmd := exec.Command("kubectl", "patch", "volumesnapshotcontent", vscName, "--type", "merge", "-p", `{"spec":{"deletionPolicy":"Delete"}}`)
+	output, err := patchCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to patch VolumeSnapshotContent: %v, output: %s", err, output)
+	}
+	fmt.Printf("Successfully patched VolumeSnapshotContent %s deletionPolicy to 'Delete'\n", vscName)
+	return nil
+}
+
+func deleteVolumeSnapshot(namespace, volumeSnapshotName string) error {
+	deleteCmd := exec.Command("kubectl", "delete", "volumesnapshot", volumeSnapshotName, "-n", namespace)
+	output, err := deleteCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to delete VolumeSnapshot: %v, output: %s", err, output)
+	}
+	return nil
 }
