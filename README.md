@@ -11,9 +11,33 @@ Focus:
 
 > Note that the README is WIP!
 
+
+## TODO
+
+Document manual labeling steps
+```bash
+
+# remove a deleteAfter labeled vs:
+kubectl label vs/<vs> "backup-ns.sh/delete-after"-
+
+# remove a specific label daily/weekly/monthly
+kubectl label vs/<vs> "backup-ns.sh/daily"-
+kubectl label vs/<vs> "backup-ns.sh/weekly"-
+kubectl label vs/<vs> "backup-ns.sh/monthly"-
+
+# add a specific label daily/weekly/monthly
+kubectl label vs/<vs> "backup-ns.sh/daily"="YYYY-MM-DD"
+kubectl label vs/<vs> "backup-ns.sh/weekly"="YYYY-w04"
+kubectl label vs/<vs> "backup-ns.sh/monthly"="YYYY-MM"
+
+# add a specific deleteAfter label:
+kubectl label vs/<vs> "backup-ns.sh/delete-after"="YYYY-MM-DD"
+```
+
 **ToC**:
 
 - [backup-ns](#backup-ns)
+  - [TODO](#todo)
     - [Requirements](#requirements)
     - [Quickstart](#quickstart)
     - [Visual Studio Code](#visual-studio-code)

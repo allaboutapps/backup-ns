@@ -26,7 +26,7 @@ func init() {
 	rootCmd.AddCommand(deleteCmd)
 }
 
-func runDelete(cmd *cobra.Command, args []string) {
+func runDelete(_ *cobra.Command, args []string) {
 	namespace := args[0]
 	volumeSnapshotName := args[1]
 
@@ -56,7 +56,7 @@ func getVolumeSnapshotContentName(namespace, volumeSnapshotName string) (string,
 	cmd := exec.Command("kubectl", "get", "volumesnapshot", volumeSnapshotName, "-n", namespace, "-o", "jsonpath={.status.boundVolumeSnapshotContentName}")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to get VolumeSnapshotContent name: %v, output: %s", err, output)
+		return "", fmt.Errorf("failed to get VolumeSnapshotContent name: %w, output: %s", err, output)
 	}
 	return strings.TrimSpace(string(output)), nil
 }
@@ -65,7 +65,7 @@ func patchVolumeSnapshotContent(vscName string) error {
 	patchCmd := exec.Command("kubectl", "patch", "volumesnapshotcontent", vscName, "--type", "merge", "-p", `{"spec":{"deletionPolicy":"Delete"}}`)
 	output, err := patchCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to patch VolumeSnapshotContent: %v, output: %s", err, output)
+		return fmt.Errorf("failed to patch VolumeSnapshotContent: %w, output: %s", err, output)
 	}
 	fmt.Printf("Successfully patched VolumeSnapshotContent %s deletionPolicy to 'Delete'\n", vscName)
 	return nil
@@ -75,7 +75,7 @@ func deleteVolumeSnapshot(namespace, volumeSnapshotName string) error {
 	deleteCmd := exec.Command("kubectl", "delete", "volumesnapshot", volumeSnapshotName, "-n", namespace)
 	output, err := deleteCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to delete VolumeSnapshot: %v, output: %s", err, output)
+		return fmt.Errorf("failed to delete VolumeSnapshot: %w, output: %s", err, output)
 	}
 	return nil
 }
