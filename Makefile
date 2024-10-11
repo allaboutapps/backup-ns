@@ -32,6 +32,7 @@ go-format: ##- (opt) Runs go format.
 helm:
 	helm template ./deploy/backup-ns > ./deploy/backup-ns.tmp.yaml
 	helm template ./deploy/backup-ns -n customer-namespace -f deploy/samples/customer-namespace-backup.values.yaml > ./deploy/samples/customer-namespace-backup.rendered.yaml
+	helm package ./deploy/backup-ns -d ./deploy
 
 go-build: ##- (opt) Runs go build.
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/app-linux-arm64

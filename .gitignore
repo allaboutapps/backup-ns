@@ -33,3 +33,4 @@ tmp
 .aider*
 
 deploy/*.tmp.yaml
+deploy/*.tgz
