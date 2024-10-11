@@ -39,7 +39,7 @@ BAK_LABEL_VS_RETAIN_DAYS="${BAK_LABEL_VS_RETAIN_DAYS:="30"}"
 BAK_VS_NAME_TEMPLATE="${BAK_VS_NAME_TEMPLATE:="\${BAK_PVC_NAME}-\$(date +\"%Y-%m-%d-%H%M%S\")-\${BAK_VS_RAND}"}"
 
 # BAK_VS_CLASS_NAME: the name of the volume snapshot class to use
-BAK_VS_CLASS_NAME="${BAK_VS_CLASS_NAME:="a3cloud-csi-gce-pd"}"
+BAK_VS_CLASS_NAME="${BAK_VS_CLASS_NAME:="a3cloud-csi-gce-pd"}" # note that the bash reference implementation need an explicit set BAK_VS_CLASS_NAME!
 
 # BAK_VS_WAIT_UNTIL_READY: if true, the script will wait until the snapshot is actually ready (useable)
 BAK_VS_WAIT_UNTIL_READY="${BAK_VS_WAIT_UNTIL_READY:="true"}"
