@@ -151,26 +151,28 @@ SHELL = /app/rksh
 .SHELLFLAGS = $@
 
 
-# .PHONY: all
-# all: format lint
+### -----------------------
+# --- Old bash reference implementation
+### -----------------------
 
-# .PHONY: info
-# info:
-# 	@shellcheck --version
-# 	@shellharden --version
+.PHONY: reference-build
+reference-build: reference-format reference-lint
 
-# .PHONY: format
-# format:
-# 	@shellharden --replace *.sh
-# 	@shellharden --replace **/*.sh
+.PHONY: reference-info
+reference-info:
+	@shellcheck --version
+	@shellharden --version
 
-# .PHONY: lint
-# lint:
-# 	@shellcheck -x *.sh
-# 	@shellcheck -x **/*.sh
-# 	@shellharden --check *.sh
-# 	@shellharden --check **/*.sh
+.PHONY: reference-format
+reference-format:
+	cd reference
+	@shellharden --replace *.sh
+	@shellharden --replace **/*.sh
 
-# # normal POSIX bash shell mode
-# SHELL = /bin/bash
-# .SHELLFLAGS = -cEeuo pipefail
+.PHONY: reference-lint
+reference-lint:
+	cd reference
+	@shellcheck -x *.sh
+	@shellcheck -x **/*.sh
+	@shellharden --check *.sh
+	@shellharden --check **/*.sh

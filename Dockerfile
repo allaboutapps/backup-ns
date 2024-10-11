@@ -1,6 +1,3 @@
-# which kubectl version to install (optimally this is in sync with the k8s version in your cluster)
-FROM bitnami/kubectl:1.28 as kubectl
-
 ### -----------------------
 # --- Stage: development
 # --- Purpose: Local development environment
@@ -37,26 +34,41 @@ RUN apt-get update \
     # graphviz: https://github.com/google/pprof#building-pprof
     # -- START DEVELOPMENT --
     apt-utils \
-    dialog \
-    gdb \
-    openssh-client \
-    less \
-    iproute2 \
-    procps \
-    lsb-release \
-    locales \
-    sudo \
     bash-completion \
     bsdmainutils \
+    curl \
+    dialog \
+    gdb \
     graphviz \
-    xz-utils \
     icu-devtools \
-    tmux \
+    iproute2 \
+    jq \
+    less \
+    locales \
+    lsb-release \
+    make \
+    openssh-client \
+    procps \
     rsync \
+    shellcheck \
+    sudo \
+    tmux \
+    xz-utils \
     # --- END DEVELOPMENT ---
     # 
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# shellharden bash script hardening
+RUN set -x; ARCH="$(uname -m)" \
+    && SHELLHARDEN_TMP="$(mktemp -d)" \
+    && SHELLHARDEN_VERSION="4.3.1" \
+    && cd "${SHELLHARDEN_TMP}" \
+    && curl -fsSLO "https://github.com/anordal/shellharden/releases/download/v${SHELLHARDEN_VERSION}/shellharden-${ARCH}-unknown-linux-gnu.tar.gz" \
+    && tar zxvf "shellharden-${ARCH}-unknown-linux-gnu.tar.gz" \
+    && chmod +x shellharden \
+    && cp shellharden /usr/local/bin/shellharden \
+    && rm -rf "${SHELLHARDEN_TMP}"
 
 # env/vscode support: LANG must be supported, requires installing the locale package first
 # https://github.com/Microsoft/vscode/issues/58015
@@ -187,6 +199,7 @@ RUN make modules
 COPY tools.go /app/tools.go
 RUN make tools
 COPY . /app/
+RUN make reference-info && make reference-lint
 RUN make go-build
 
 ### -----------------------
@@ -196,19 +209,42 @@ RUN make go-build
 # --- debian:buster-slim https://hub.docker.com/_/debian (if you need apt-get).
 ### -----------------------
 
-# Distroless images are minimal and lack shell access.
-# https://github.com/GoogleContainerTools/distroless/blob/master/base/README.md
-# The :debug image provides a busybox shell to enter (base-debian10 only, not static).
-# https://github.com/GoogleContainerTools/distroless#debug-images
-FROM gcr.io/distroless/base-debian12:debug as app
-
-# https://hub.docker.com/r/bitnami/kubectl/tags
-COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
-COPY --from=builder /app/bin/app /app/
-
+# which kubectl version to install (optimally this is in sync with the k8s version in your cluster)
+FROM bitnami/kubectl:1.28 as app
+COPY --from=builder /usr/bin/jq /usr/bin/jq
 WORKDIR /app
 
-# Must comply to vector form
-# https://github.com/GoogleContainerTools/distroless#entrypoints
+# old bash reference implementation
+COPY --from=builder --chmod=0777 /app/reference/backup-ns.sh /app/backup-ns.sh
+COPY --from=builder --chmod=0777 /app/reference/sync-metadata-to-vsc.sh /app/sync-metadata-to-vsc.sh
+COPY --from=builder --chmod=0777 /app/reference/retain.sh /app/retain.sh
+COPY --from=builder --chmod=0777 /app/reference/mark-and-delete.sh /app/mark-and-delete.sh
+COPY --from=builder /app/reference/lib /app/lib
+
+# sanity check all the required bash/cli tools are installed in the image
+RUN bash -c "source /app/lib/utils.sh && utils_check_host_requirements true true"
+
+# new go binary
+COPY --from=builder /app/bin/app /app/
+
+# default entrypoint is the new go binary already
 ENTRYPOINT ["/app/app"]
-# CMD ["arg"]
+
+# distroless disabled for now, until we switch to the full go based version (without the above bash reference implementation)
+# FROM bitnami/kubectl:1.28 as kubectl
+# # Distroless images are minimal and lack shell access.
+# # https://github.com/GoogleContainerTools/distroless/blob/master/base/README.md
+# # The :debug image provides a busybox shell to enter (base-debian10 only, not static).
+# # https://github.com/GoogleContainerTools/distroless#debug-images
+# FROM gcr.io/distroless/base-debian12:debug as app
+
+# # https://hub.docker.com/r/bitnami/kubectl/tags
+# COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
+# COPY --from=builder /app/bin/app /app/
+
+# WORKDIR /app
+
+# # Must comply to vector form
+# # https://github.com/GoogleContainerTools/distroless#entrypoints
+# ENTRYPOINT ["/app/app"]
+# # CMD ["arg"]
