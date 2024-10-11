@@ -8,6 +8,7 @@ build: ##- Default 'make' target: go-format, go-build and lint.
 	@$(MAKE) helm
 	@$(MAKE) go-build
 	@$(MAKE) lint
+	@$(MAKE) reference-build
 
 # useful to ensure that everything gets resetuped from scratch
 all: init ##- Runs all of our common make targets: clean, init, build and test.
