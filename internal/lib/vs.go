@@ -91,7 +91,7 @@ func GenerateVSAnnotations(bakEnvVars map[string]string) map[string]string {
 }
 
 func GenerateVSObject(namespace, vsClassName, pvcName, vsName string, labels, annotations map[string]string) map[string]interface{} {
-	return map[string]interface{}{
+	manifest := map[string]interface{}{
 		"apiVersion": "snapshot.storage.k8s.io/v1",
 		"kind":       "VolumeSnapshot",
 		"metadata": map[string]interface{}{
@@ -101,12 +101,19 @@ func GenerateVSObject(namespace, vsClassName, pvcName, vsName string, labels, an
 			"annotations": annotations,
 		},
 		"spec": map[string]interface{}{
-			"volumeSnapshotClassName": vsClassName,
+			// "snapshotClassName": "", // optional
 			"source": map[string]interface{}{
 				"persistentVolumeClaimName": pvcName,
 			},
 		},
 	}
+
+	if vsClassName != "" {
+		// else expect that the default VolumeSnapshotClass will automatically be chosen by the cluster
+		manifest["spec"].(map[string]interface{})["snapshotClassName"] = vsClassName
+	}
+
+	return manifest
 }
 
 func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject map[string]interface{}, wait bool, waitTimeout string) {

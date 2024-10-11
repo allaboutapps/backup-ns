@@ -99,8 +99,8 @@ func LoadConfig() Config {
 		// The (go template) of the name of the volume snapshot (will be evaluated after having the flock lock, if enabled)
 		VSNameTemplate: getEnv("BAK_VS_NAME_TEMPLATE", "{{ .pvcName }}-{{ .timestamp }}-{{ .rand }}"),
 
-		// The name of the volume snapshot class to use
-		VSClassName: getEnv("BAK_VS_CLASS_NAME", "a3cloud-csi-gce-pd"), // should have "Retain" deletion policy!
+		// The name of the volume snapshot class to use, "" means default class
+		VSClassName: getEnv("BAK_VS_CLASS_NAME", ""), // the snapshot calls should have "Retain" deletion policy set!
 
 		// If true, the script will wait until the snapshot is actually ready (useable)
 		VSWaitUntilReady: getBoolEnv("BAK_VS_WAIT_UNTIL_READY", true),

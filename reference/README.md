@@ -23,9 +23,10 @@ We require a VolumeSnapshotClass to be present in the cluster:
 apiVersion: snapshot.storage.k8s.io/v1
 kind: VolumeSnapshotClass
 metadata:
-  name: a3cloud-csi-gce-pd
-  # annotations:
-  #   snapshot.storage.kubernetes.io/is-default-class: "true"
+  name: my-default-snapshot-class
+  annotations:
+    # If you don't set this snapshot class as the default, you will have to specify it within the BAK_VS_CLASS_NAME env var.
+    snapshot.storage.kubernetes.io/is-default-class: "true"
 driver: pd.csi.storage.gke.io
 parameters:
   storage-locations: europe-west3
