@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config holds all the configuration options
@@ -243,19 +244,19 @@ func GetBAKEnvVars() map[string]string {
 	return envVars
 }
 
-func PrintBAKEnvVars() {
-	envVars := GetBAKEnvVars()
-	for key, value := range envVars {
-		log.Printf("%s='%s'\n", key, value)
-	}
+// Prints the current timezone and the current date and time
+func PrintTimeZone() {
+	t := time.Now()
+	zone, _ := t.Zone()
+	log.Println("TimeZone:", zone, "Now:", t.Format(time.DateOnly), t.Format(time.TimeOnly))
 }
 
 func PrintConfig(config Config) {
 	c, err := json.MarshalIndent(config, "", "  ")
 
 	if err != nil {
-		log.Fatalf("Failed to printEnv")
+		log.Fatalf("Failed to PrintConfig")
 	}
 
-	log.Println("PrintConfig", string(c))
+	log.Println("Config:", string(c))
 }

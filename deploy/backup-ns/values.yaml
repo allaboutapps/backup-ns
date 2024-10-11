@@ -17,7 +17,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 timeZone: "Europe/Vienna"
-schedule: "17 0 * * *"
+schedule: "0 0 * * *"
 
 #This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
@@ -31,8 +31,54 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
+# You will need to bind the service account to a role that has permission to
+# create VolumeSnapshots and execute into the pods.
+roleBinding:
+  create: false
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: backup-ns-role
+
+lockPermissionFixer:
+  enabled: true
+  image: busybox:1.26.2
+  command: ["sh", "-c", "chmod 777 /mnt/host-backup-locks"]
+  volumeMounts:
+    - name: host-backup-locks
+      mountPath: /mnt/host-backup-locks
+
+additionalInitContainers: []
+
+# Volumes on the output Cronjob definition.
+volumes:
+  - name: host-backup-locks
+    hostPath:
+      path: /tmp/backup-ns-locks
+      type: DirectoryOrCreate # this controls parallelism (flock) when running multiple jobs on the same node at the same time
+
+# VolumeMounts on the output Cronjob definition.
+volumeMounts:
+  - name: host-backup-locks
+    mountPath: /mnt/host-backup-locks
+
+restartPolicy: Never # do not try to restart the container itself (full pod instead)
+
+concurrencyPolicy: Forbid
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+
+backoffLimit: 2 # retry three times.
+activeDeadlineSeconds: 10800 # 3h max time before considered failed
+
+envData:
+  # see internal/lib/bak_env.go
+  BAK_LABEL_VS_TYPE: cronjob
+  BAK_FLOCK: "true"
+  BAK_FLOCK_DIR: /mnt/host-backup-locks
+
 # This is for setting Kubernetes Annotations to a Pod.
-# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/ 
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 podAnnotations: {}
 # This is for setting Kubernetes Labels to a Pod.
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
@@ -49,30 +95,6 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
-# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
-service:
-  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
-  type: ClusterIP
-  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  port: 80
-
-# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
-
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -85,22 +107,8 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
-# Volumes on the output Cronjob definition.
-volumes:
-- name: timezone
-  hostPath:
-    path: /usr/share/zoneinfo/Europe/Vienna
-- name: host-backup-locks
-  hostPath:
-    path: /tmp/backup-ns-locks
-    type: DirectoryOrCreate # control parallelism from multiple k8s hosts (flock)
 
-# VolumeMounts on the output Cronjob definition.
-volumeMounts:
-- name: timezone
-  mountPath: /etc/localtime
-- name: host-backup-locks
-  mountPath: /mnt/host-backup-locks
+additionalContainers: []
 
 nodeSelector: {}
 
@@ -110,3 +118,4 @@ affinity: {}
 
 priorityClassName: ""
 
+annotations: {}

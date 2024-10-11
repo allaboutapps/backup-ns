@@ -1,0 +1,34 @@
+timeZone: "Europe/Vienna"
+schedule: "17 0 * * *"
+
+envData:
+  # see internal/lib/bak_env.go
+  BAK_PVC_NAME: data
+  BAK_LABEL_VS_RETAIN: daily_weekly_monthly
+
+  # BAK_DB_SKIP: "true" # no db in this namespace?!
+
+  # BAK_DB_POSTGRES: "true"
+  # BAK_DB_POSTGRES_EXEC_RESOURCE: deployment/app-base
+  # BAK_DB_POSTGRES_EXEC_CONTAINER: postgres
+
+  # BAK_DB_MYSQL: "true"
+  # BAK_DB_MYSQL_EXEC_RESOURCE: deployment/app-base # deployment/wordpress-base
+  # BAK_DB_MYSQL_EXEC_CONTAINER: mariadb # mysql
+
+priorityClassName: "a3cloud-pod-undisturbed"
+
+annotations:
+    a3c-validate-prefer-explicit-pod-strategy: "Recreate"
+
+additionalInitContainers:
+  - image: bash:5.0.7
+    name: init-postgres
+    command: ["timeout", "2", "bash", "-c", "</dev/tcp/postgres.app-dev.svc.cluster.local/5432"]
+
+roleBinding:
+  create: true
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: a3cloud-backup

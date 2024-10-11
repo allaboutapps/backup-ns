@@ -6,22 +6,6 @@ metadata:
   labels:
     {{- include "backup-ns.labels" . | nindent 4 }}
 data:
-  # see https://git.allaboutapps.at/projects/AW/repos/backup-ns/browse/backup-ns.sh#23
-
-  # BAK_DRY_RUN: "true"
-  # BAK_PVC_NAME: data
-  BAK_LABEL_VS_TYPE: cronjob
-  BAK_LABEL_VS_RETAIN: daily_weekly_monthly
-
-  BAK_FLOCK: "true"
-  # BAK_FLOCK_DIR: /mnt/host-backup-locks
-
-  # BAK_DB_SKIP: "true" # no db in this namespace?!
-
-  BAK_DB_POSTGRES: "true"
-  # BAK_DB_POSTGRES_EXEC_RESOURCE: deployment/app-base
-  # BAK_DB_POSTGRES_EXEC_CONTAINER: postgres
-
-  # BAK_DB_MYSQL: "true"
-  # BAK_DB_MYSQL_EXEC_RESOURCE: deployment/app-base # deployment/wordpress-base
-  # BAK_DB_MYSQL_EXEC_CONTAINER: mariadb # mysql
+  {{- with .Values.envData }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}

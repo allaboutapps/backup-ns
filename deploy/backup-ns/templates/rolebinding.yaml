@@ -1,3 +1,4 @@
+{{- if .Values.roleBinding.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -6,10 +7,11 @@ metadata:
   labels:
     {{- include "backup-ns.labels" . | nindent 4 }}
 roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: a3cloud-backup
+  apiGroup: {{ .Values.roleBinding.roleRef.apiGroup }}
+  kind: {{ .Values.roleBinding.roleRef.kind }}
+  name: {{ .Values.roleBinding.roleRef.name }}
 subjects:
   - kind: ServiceAccount
     name: {{ include "backup-ns.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
+{{- end }}

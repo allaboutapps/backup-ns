@@ -33,7 +33,7 @@ func init() {
 func runCreate(_ *cobra.Command, _ []string) {
 	config := lib.LoadConfig()
 
-	lib.PrintBAKEnvVars()
+	lib.PrintTimeZone()
 	lib.PrintConfig(config)
 
 	if config.DryRun {
