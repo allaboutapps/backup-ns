@@ -16,7 +16,7 @@ all: init ##- Runs all of our common make targets: clean, init, build and test.
 
 watch: ##- Watches for changes and runs 'make build' on modifications.
 	@echo Watching. Use Ctrl-c to exit.
-	watchexec -r -w . --exts go,yaml -i *.tmp.yaml $(MAKE) build
+	watchexec -r -w . --exts go,yaml -i *.tmp.yaml -i *.rendered.yaml $(MAKE) build
 
 info: ##- Prints info about go.mod updates and current go version.
 	@$(MAKE) get-go-outdated-modules
@@ -30,7 +30,7 @@ go-format: ##- (opt) Runs go format.
 
 helm:
 	helm template ./deploy/backup-ns > ./deploy/backup-ns.tmp.yaml
-	helm template ./deploy/backup-ns -f deploy/values.test.yaml > ./deploy/values.test.tmp.yaml
+	helm template ./deploy/backup-ns -n customer-namespace -f deploy/samples/customer-namespace-backup.values.yaml > ./deploy/samples/customer-namespace-backup.rendered.yaml
 
 go-build: ##- (opt) Runs go build.
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/app-linux-arm64

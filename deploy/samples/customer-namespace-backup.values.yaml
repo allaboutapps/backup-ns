@@ -1,0 +1,72 @@
+# This is an example on how allaboutapps currently uses the backup-ns chart in a typical customer namespace.
+# It this case:
+# * a deployment called app-base is running in the same namespace
+#   * a pod of this deployments is running a container called postgres
+#   + thus, we will execute a dump within this container before doing the snapshot
+
+fullnameOverride: "backup"
+
+serviceAccount:
+  name: "a3cloud-backup"
+
+image:
+  tag: "2231cf7214"
+
+timeZone: "Europe/Vienna"
+schedule: "17 0 * * *"
+
+podLabels:
+  app: backup
+
+envData:
+  # see internal/lib/bak_env.go
+  BAK_PVC_NAME: data
+  BAK_LABEL_VS_RETAIN: daily_weekly_monthly
+
+  # BAK_DB_SKIP: "true" # no db in this namespace?!
+
+  BAK_DB_POSTGRES: "true"
+  BAK_DB_POSTGRES_EXEC_RESOURCE: deployment/app-base
+  BAK_DB_POSTGRES_EXEC_CONTAINER: postgres
+  # BAK_DB_POSTGRES_DUMP_FILE: /var/lib/postgresql/data/dump.sql.gz
+  # BAK_DB_POSTGRES_USER: "${POSTGRES_USER}"
+  # BAK_DB_POSTGRES_DB: "${POSTGRES_DB}"
+
+  # BAK_DB_MYSQL: "true"
+  # BAK_DB_MYSQL_EXEC_RESOURCE: deployment/app-base # deployment/wordpress-base
+  # BAK_DB_MYSQL_EXEC_CONTAINER: mariadb # mysql
+  # BAK_DB_MYSQL_DUMP_FILE: "/var/lib/mysql/dump.sql.gz"
+  # BAK_DB_MYSQL_HOST: "127.0.0.1"
+  # BAK_DB_MYSQL_USER: "root"
+  # BAK_DB_MYSQL_DB: "${MYSQL_DATABASE}"
+
+priorityClassName: "a3cloud-pod-undisturbed"
+
+annotations:
+  a3c-validate-prefer-explicit-pod-strategy: "Recreate"
+
+roleBinding:
+  create: true
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: a3cloud-backup
+
+affinity:
+  # prefer only to schedule on dev/prod nodes
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: a3cloud.at/environment
+              operator: In
+              values: ["dev"]
+  podAffinity:
+    # force exe on same node as app-base
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values: ["app-base"]
+        topologyKey: kubernetes.io/hostname

@@ -50,7 +50,7 @@ spec:
           initContainers:
 
           {{- if .Values.lockPermissionFixer.enabled }}
-          - name: lockPermissionFixer
+          - name: lock-permission-fixer
             image: {{ .Values.lockPermissionFixer.image }}
             command: {{- toYaml .Values.lockPermissionFixer.command | nindent 12 }}
             {{- with .Values.lockPermissionFixer.volumeMounts }}

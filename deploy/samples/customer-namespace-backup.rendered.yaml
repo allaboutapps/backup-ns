@@ -1,0 +1,157 @@
+---
+# Source: backup-ns/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: a3cloud-backup
+  namespace: customer-namespace
+  labels:
+    helm.sh/chart: backup-ns-0.1.0
+    app.kubernetes.io/name: backup-ns
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "a728d01c0a"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: backup-ns/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-env
+  namespace: customer-namespace
+  labels:
+    helm.sh/chart: backup-ns-0.1.0
+    app.kubernetes.io/name: backup-ns
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "a728d01c0a"
+    app.kubernetes.io/managed-by: Helm
+data:
+  BAK_DB_POSTGRES: "true"
+  BAK_DB_POSTGRES_EXEC_CONTAINER: postgres
+  BAK_DB_POSTGRES_EXEC_RESOURCE: deployment/app-base
+  BAK_FLOCK: "true"
+  BAK_FLOCK_DIR: /mnt/host-backup-locks
+  BAK_LABEL_VS_RETAIN: daily_weekly_monthly
+  BAK_LABEL_VS_TYPE: cronjob
+  BAK_PVC_NAME: data
+---
+# Source: backup-ns/templates/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: a3cloud-backup
+  namespace: customer-namespace
+  labels:
+    helm.sh/chart: backup-ns-0.1.0
+    app.kubernetes.io/name: backup-ns
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "a728d01c0a"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: a3cloud-backup
+subjects:
+  - kind: ServiceAccount
+    name: a3cloud-backup
+    namespace: customer-namespace
+---
+# Source: backup-ns/templates/cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup
+  namespace: customer-namespace
+  labels:
+    helm.sh/chart: backup-ns-0.1.0
+    app.kubernetes.io/name: backup-ns
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "a728d01c0a"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    a3c-validate-prefer-explicit-pod-strategy: Recreate
+spec:
+  schedule: 17 0 * * *
+  timeZone: Europe/Vienna
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 10800
+      template:
+        metadata:
+          labels:
+            helm.sh/chart: backup-ns-0.1.0
+            app.kubernetes.io/name: backup-ns
+            app.kubernetes.io/instance: release-name
+            app.kubernetes.io/version: "a728d01c0a"
+            app.kubernetes.io/managed-by: Helm
+            app: backup
+        spec:
+          serviceAccountName: a3cloud-backup
+          restartPolicy: Never
+          securityContext:
+            {}
+          priorityClassName: a3cloud-pod-undisturbed
+
+          initContainers:
+          - name: lock-permission-fixer
+            image: busybox:1.26.2
+            command:
+            - sh
+            - -c
+            - chmod 777 /mnt/host-backup-locks
+            volumeMounts:
+            - mountPath: /mnt/host-backup-locks
+              name: host-backup-locks
+
+          containers:
+          - name: backup-ns
+            securityContext:
+              {}
+            image: "eu.gcr.io/a3cloud-192413/aw/backup-ns:2231cf7214"
+            imagePullPolicy: IfNotPresent
+            envFrom:
+            - configMapRef:
+                name: backup-env
+            env:
+            - name: BAK_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: BAK_LABEL_VS_POD
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TZ
+              value: Europe/Vienna
+            resources:
+              {}
+            volumeMounts:
+            - mountPath: /mnt/host-backup-locks
+              name: host-backup-locks
+          volumes:
+          - hostPath:
+              path: /tmp/backup-ns-locks
+              type: DirectoryOrCreate
+            name: host-backup-locks
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: a3cloud.at/environment
+                    operator: In
+                    values:
+                    - dev
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                    - app-base
+                topologyKey: kubernetes.io/hostname
