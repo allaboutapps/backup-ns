@@ -11,6 +11,7 @@ data:
   # BAK_DRY_RUN: "true"
   # BAK_PVC_NAME: data
   BAK_LABEL_VS_TYPE: cronjob
+  BAK_LABEL_VS_RETAIN: daily_weekly_monthly
 
   BAK_FLOCK: "true"
   # BAK_FLOCK_DIR: /mnt/host-backup-locks

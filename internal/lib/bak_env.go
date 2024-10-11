@@ -90,7 +90,7 @@ func LoadConfig() Config {
 			// "backup-ns.sh/retain" label value. Currently supported values:
 			// "daily_weekly_monthly": keep as long as these label keys (key "backup-ns.sh/daily|weekly|monthly") are available on the vs
 			// "days": keep the vs for as long as the label value within key "backup-ns.sh/delete-after" says (YYYY-MM-DD)
-			Retain: getEnv("BAK_LABEL_VS_RETAIN", "daily_weekly_monthly"),
+			Retain: getEnv("BAK_LABEL_VS_RETAIN", "days"),
 
 			// The number of days to retain the snapshot if BAK_LABEL_VS_RETAIN is set to "days"
 			RetainDays: getIntEnv("BAK_LABEL_VS_RETAIN_DAYS", 30),

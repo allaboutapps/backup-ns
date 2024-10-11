@@ -30,7 +30,7 @@ BAK_LABEL_VS_POD="${BAK_LABEL_VS_POD:=""}"
 # BAK_LABEL_VS_RETAIN: "backup-ns.sh/retain" label value. Currently the only supported values are:
 # "daily_weekly_monthly": keep as long as these label keys (key "backup-ns.sh/daily|weekly|monthly") are available on the vs
 # "days": keep the vs for as long as the label value within key "backup-ns.sh/delete-after" says (YYYY-MM-DD) - defaults to +30 days
-BAK_LABEL_VS_RETAIN="${BAK_LABEL_VS_RETAIN:="daily_weekly_monthly"}"
+BAK_LABEL_VS_RETAIN="${BAK_LABEL_VS_RETAIN:="days"}"
 
 # BAK_LABEL_VS_RETAIN_DAYS: the number of days to retain the snapshot if BAK_LABEL_VS_RETAIN is set to "days"
 BAK_LABEL_VS_RETAIN_DAYS="${BAK_LABEL_VS_RETAIN_DAYS:="30"}"
