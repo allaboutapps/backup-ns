@@ -34,3 +34,6 @@ tmp
 
 deploy/*.tmp.yaml
 deploy/*.tgz
+
+# kind kubectl config
+.kube

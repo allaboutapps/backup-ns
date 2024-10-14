@@ -1,3 +1,7 @@
+# which kubectl version to install (should be in sync with the kubernetes version used by GKE)
+# https://hub.docker.com/r/bitnami/kubectl/tags
+FROM bitnami/kubectl:1.28 as kubectl
+
 ### -----------------------
 # --- Stage: development
 # --- Purpose: Local development environment
@@ -114,17 +118,9 @@ RUN mkdir -p /tmp/watchexec \
     && cp watchexec-1.25.1-$(arch)-unknown-linux-musl/watchexec /usr/local/bin/watchexec \
     && rm -rf /tmp/watchexec
 
-# yq
-# https://github.com/mikefarah/yq/releases
-RUN mkdir -p /tmp/yq \
-    && cd /tmp/yq \
-    && ARCH="$(arch | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)" \
-    && wget "https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_${ARCH}.tar.gz" \
-    && tar xzf "yq_linux_${ARCH}.tar.gz" \
-    && cp "yq_linux_${ARCH}" /usr/local/bin/yq \
-    && rm -rf /tmp/yq
+# https://hub.docker.com/r/bitnami/kubectl/tags
+COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
 
-# helm
 # https://helm.sh/docs/intro/install/
 RUN set -x; HELM_TMP="$(mktemp -d)" \
     && HELM_VERSION="3.16.0" \
@@ -136,7 +132,43 @@ RUN set -x; HELM_TMP="$(mktemp -d)" \
     && chmod +x linux-${ARCH}/helm \
     && cp linux-${ARCH}/helm /usr/local/bin/helm \
     && chown $USERNAME:$USERNAME /usr/local/bin/helm \
-    && rm -rf "${HELM_TMP}"
+    && rm -rf "${HELM_TMP}" \
+    # kex
+    # https://github.com/farmotive/kex
+    && KEX_TMP="$(mktemp -d)" \
+    && KEX_VERSION="1.2.2" \
+    && cd "${KEX_TMP}" \
+    && curl -fsSLO "https://github.com/farmotive/kex/archive/refs/tags/v${KEX_VERSION}.tar.gz" \
+    && tar zxvf "v${KEX_VERSION}.tar.gz" \
+    && chmod +x kex-${KEX_VERSION}/kex \
+    && cp kex-${KEX_VERSION}/kex /usr/local/bin/kex \
+    && chown $USERNAME:$USERNAME /usr/local/bin/kex \
+    && rm -rf "${KEX_TMP}" \
+    # k9s
+    # https://github.com/derailed/k9s/releases
+    && K9S_TMP="$(mktemp -d)" \
+    && K9S_VERSION="0.32.5" \
+    && cd "${K9S_TMP}" \
+    && ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" \
+    && curl -fsSLO "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_Linux_${ARCH}.tar.gz" \
+    && tar zxvf "k9s_Linux_${ARCH}.tar.gz" \
+    && chmod +x k9s \
+    && cp k9s /usr/local/bin/k9s \
+    && chown $USERNAME:$USERNAME /usr/local/bin/k9s \
+    && rm -rf "${K9S_TMP}" \
+    # yq
+    # https://github.com/mikefarah/yq/releases
+    && YQ_TMP="$(mktemp -d)" \
+    && YQ_VERSION="4.44.3" \
+    && cd "${YQ_TMP}" \
+    && ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" \
+    && curl -fsSLO "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${ARCH}.tar.gz" \
+    && tar zxvf "yq_linux_${ARCH}.tar.gz" \
+    && chmod +x "yq_linux_${ARCH}" \
+    && cp "yq_linux_${ARCH}" /usr/local/bin/yq \
+    && chown $USERNAME:$USERNAME /usr/local/bin/yq \
+    && rm -rf "${YQ_TMP}"
+
 
 # linux permissions / vscode support: Add user to avoid linux file permission issues
 # Detail: Inside the container, any mounted files/folders will have the exact same permissions
@@ -184,6 +216,47 @@ WORKDIR /app
 ENV GOBIN /app/bin
 ENV PATH $PATH:$GOBIN
 
+USER $USERNAME
+
+# krew
+# https://github.com/kubernetes-sigs/krew/releases
+RUN set -x; KREW_TMP="$(mktemp -d)" \
+    && cd "${KREW_TMP}" \
+    && KREW_VERSION="0.4.4" \
+    && ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" \
+    && KREW="krew-linux_${ARCH}" \
+    && curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v${KREW_VERSION}/${KREW}.tar.gz" \
+    && tar zxvf "${KREW}.tar.gz" \
+    && ./"${KREW}" install krew \
+    && rm -rf "${KREW_TMP}"
+ENV PATH $PATH:/home/$USERNAME/.krew/bin
+
+# install kubectl plugins via krew
+# https://krew.sigs.k8s.io/plugins/
+# -> https://github.com/stern/stern
+# -> https://github.com/ahmetb/kubectx
+# -> https://github.com/patrickdappollonio/kubectl-slice
+RUN kubectl krew install stern ctx ns slice
+
+# typical k8s aliases/completions and other .bashrc modifications
+RUN echo 'source <(kubectl completion bash)' >>~/.bashrc \
+    && echo 'alias k=kubectl' >>~/.bashrc \
+    && echo 'complete -o default -F __start_kubectl k' >>~/.bashrc \
+    # https://github.com/ahmetb/kubectx
+    && echo 'alias ks="kubectl ns \$(basename \$(pwd))"' >>~/.bashrc \
+    && echo 'alias kubens="kubectl ns"' >>~/.bashrc \
+    && echo 'alias kc="kubectl ctx \$(basename \$(pwd))"' >>~/.bashrc \
+    && echo 'alias kubectx="kubectl ctx"' >>~/.bashrc \
+    # https://github.com/stern/stern
+    && echo 'source <(kubectl stern --completion bash)' >>~/.bashrc \
+    && echo 'alias stern="kubectl stern"' >>~/.bashrc \
+    # https://kubernetes.io/docs/reference/kubectl/cheatsheet/ + https://faun.pub/be-fast-with-kubectl-1-18-ckad-cka-31be00acc443
+    && echo "alias kx='f() { [ "\$1" ] && kubectl config use-context \$1 || kubectl config current-context ; } ; f'" >>~/.bashrc \
+    && echo "alias kn='f() { [ "\$1" ] && kubectl config set-context --current --namespace \$1 || kubectl config view --minify | grep namespace | cut -d" " -f6 ; } ; f'" >>~/.bashrc \
+    && echo 'export do="--dry-run=client -o yaml"' >>~/.bashrc \
+    && echo 'syntax on' >>~/.vimrc \
+    && echo 'set ts=2 sw=2 et' >>~/.vimrc
+
 ### -----------------------
 # --- Stage: builder
 # --- Purpose: Statically built binaries and CI environment
@@ -210,7 +283,7 @@ RUN make go-build
 ### -----------------------
 
 # which kubectl version to install (optimally this is in sync with the k8s version in your cluster)
-FROM bitnami/kubectl:1.28 as app
+FROM kubectl as app
 COPY --from=builder /usr/bin/jq /usr/bin/jq
 WORKDIR /app
 
