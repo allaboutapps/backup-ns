@@ -216,10 +216,9 @@ WORKDIR /app
 ENV GOBIN /app/bin
 ENV PATH $PATH:$GOBIN
 
-USER $USERNAME
-
 # krew
 # https://github.com/kubernetes-sigs/krew/releases
+ENV KREW_ROOT /opt/krew
 RUN set -x; KREW_TMP="$(mktemp -d)" \
     && cd "${KREW_TMP}" \
     && KREW_VERSION="0.4.4" \
@@ -229,33 +228,35 @@ RUN set -x; KREW_TMP="$(mktemp -d)" \
     && tar zxvf "${KREW}.tar.gz" \
     && ./"${KREW}" install krew \
     && rm -rf "${KREW_TMP}"
-ENV PATH $PATH:/home/$USERNAME/.krew/bin
+ENV PATH $PATH:$KREW_ROOT/bin
 
 # install kubectl plugins via krew
 # https://krew.sigs.k8s.io/plugins/
 # -> https://github.com/stern/stern
 # -> https://github.com/ahmetb/kubectx
 # -> https://github.com/patrickdappollonio/kubectl-slice
-RUN kubectl krew install stern ctx ns slice
+# hack: we chown to $USERNAME to avoid permission issues when running the container
+RUN kubectl krew install stern ctx ns slice \
+    && chown -R $USERNAME $KREW_ROOT
 
 # typical k8s aliases/completions and other .bashrc modifications
-RUN echo 'source <(kubectl completion bash)' >>~/.bashrc \
-    && echo 'alias k=kubectl' >>~/.bashrc \
-    && echo 'complete -o default -F __start_kubectl k' >>~/.bashrc \
+RUN echo 'source <(kubectl completion bash)' >>/home/$USERNAME/.bashrc \
+    && echo 'alias k=kubectl' >>/home/$USERNAME/.bashrc \
+    && echo 'complete -o default -F __start_kubectl k' >>/home/$USERNAME/.bashrc \
     # https://github.com/ahmetb/kubectx
-    && echo 'alias ks="kubectl ns \$(basename \$(pwd))"' >>~/.bashrc \
-    && echo 'alias kubens="kubectl ns"' >>~/.bashrc \
-    && echo 'alias kc="kubectl ctx \$(basename \$(pwd))"' >>~/.bashrc \
-    && echo 'alias kubectx="kubectl ctx"' >>~/.bashrc \
+    && echo 'alias ks="kubectl ns \$(basename \$(pwd))"' >>/home/$USERNAME/.bashrc \
+    && echo 'alias kubens="kubectl ns"' >>/home/$USERNAME/.bashrc \
+    && echo 'alias kc="kubectl ctx \$(basename \$(pwd))"' >>/home/$USERNAME/.bashrc \
+    && echo 'alias kubectx="kubectl ctx"' >>/home/$USERNAME/.bashrc \
     # https://github.com/stern/stern
-    && echo 'source <(kubectl stern --completion bash)' >>~/.bashrc \
-    && echo 'alias stern="kubectl stern"' >>~/.bashrc \
+    && echo 'source <(kubectl stern --completion bash)' >>/home/$USERNAME/.bashrc \
+    && echo 'alias stern="kubectl stern"' >>/home/$USERNAME/.bashrc \
     # https://kubernetes.io/docs/reference/kubectl/cheatsheet/ + https://faun.pub/be-fast-with-kubectl-1-18-ckad-cka-31be00acc443
-    && echo "alias kx='f() { [ "\$1" ] && kubectl config use-context \$1 || kubectl config current-context ; } ; f'" >>~/.bashrc \
-    && echo "alias kn='f() { [ "\$1" ] && kubectl config set-context --current --namespace \$1 || kubectl config view --minify | grep namespace | cut -d" " -f6 ; } ; f'" >>~/.bashrc \
-    && echo 'export do="--dry-run=client -o yaml"' >>~/.bashrc \
-    && echo 'syntax on' >>~/.vimrc \
-    && echo 'set ts=2 sw=2 et' >>~/.vimrc
+    && echo "alias kx='f() { [ "\$1" ] && kubectl config use-context \$1 || kubectl config current-context ; } ; f'" >>/home/$USERNAME/.bashrc \
+    && echo "alias kn='f() { [ "\$1" ] && kubectl config set-context --current --namespace \$1 || kubectl config view --minify | grep namespace | cut -d" " -f6 ; } ; f'" >>/home/$USERNAME/.bashrc \
+    && echo 'export do="--dry-run=client -o yaml"' >>/home/$USERNAME/.bashrc \
+    && echo 'syntax on' >>/home/$USERNAME/.vimrc \
+    && echo 'set ts=2 sw=2 et' >>/home/$USERNAME/.vimrc
 
 ### -----------------------
 # --- Stage: builder
