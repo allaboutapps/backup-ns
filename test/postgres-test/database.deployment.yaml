@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database
+  namespace: postgres-test
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: database
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      containers:
+        # https://hub.docker.com/_/postgres
+        - image: postgres:12.4-alpine
+          name: postgres
+          env:
+            # test only, never store production db credentials in cleartext
+            - name: POSTGRES_DB
+              value: "pgbench_test"
+            - name: POSTGRES_USER
+              value: dbuser
+            - name: POSTGRES_PASSWORD
+              value: pass
+          volumeMounts:
+            - name: disk-data
+              mountPath: /var/lib/postgresql/data
+              subPath: postgresql
+
+      volumes:
+        - name: disk-data
+          persistentVolumeClaim:
+            claimName: data

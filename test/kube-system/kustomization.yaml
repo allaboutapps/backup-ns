@@ -1,0 +1,29 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # https://github.com/kubernetes-csi/external-snapshotter/tree/release-8.1/client/config/crd/kustomization.yaml
+  - snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+  - snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+  - snapshot.storage.k8s.io_volumesnapshots.yaml
+  - groupsnapshot.storage.k8s.io_volumegroupsnapshotclasses.yaml
+  - groupsnapshot.storage.k8s.io_volumegroupsnapshotcontents.yaml
+  - groupsnapshot.storage.k8s.io_volumegroupsnapshots.yaml
+  # # externaks rbac only?
+  # - external-attacher.rbac.yaml
+  # # - external-provisioner.rbac.yaml
+  # - external-resizer.rbac.yaml
+  # https://github.com/kubernetes-csi/external-snapshotter/tree/release-8.1/deploy/kubernetes/snapshot-controller/kustomization.yaml
+  - rbac-snapshot-controller.yaml
+  - setup-snapshot-controller.yaml
+  # # https://github.com/kubernetes-csi/external-snapshotter/tree/release-8.1/deploy/kubernetes/csi-snapshotter/kustomization.yaml
+  # - rbac-csi-snapshotter.yaml
+  # - rbac-external-provisioner.yaml
+  # - setup-csi-snapshotter.yaml
+  # # https://github.com/kubernetes-csi/csi-driver-host-path/tree/release-1.15/deploy/kubernetes-1.27/hostpath
+  # - csi-hostpath-driverinfo.yaml
+  # - csi-hostpath-plugin.yaml
+  # - csi-hostpath-testing.yaml
+  # https://github.com/kubernetes-csi/csi-driver-host-path/blob/release-1.15/examples/
+  - csi-hostpath-sc.storageclass.yaml
+  - csi-hostpath-snapshotclass.yaml

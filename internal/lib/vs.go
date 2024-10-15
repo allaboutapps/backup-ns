@@ -101,7 +101,7 @@ func GenerateVSObject(namespace, vsClassName, pvcName, vsName string, labels, an
 			"annotations": annotations,
 		},
 		"spec": map[string]interface{}{
-			// "snapshotClassName": "", // optional
+			// "volumeSnapshotClassName": "", // optional
 			"source": map[string]interface{}{
 				"persistentVolumeClaimName": pvcName,
 			},
@@ -110,7 +110,7 @@ func GenerateVSObject(namespace, vsClassName, pvcName, vsName string, labels, an
 
 	if vsClassName != "" {
 		// else expect that the default VolumeSnapshotClass will automatically be chosen by the cluster
-		manifest["spec"].(map[string]interface{})["snapshotClassName"] = vsClassName
+		manifest["spec"].(map[string]interface{})["volumeSnapshotClassName"] = vsClassName
 	}
 
 	return manifest
