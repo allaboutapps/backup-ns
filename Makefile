@@ -205,7 +205,7 @@ reference-lint:
 
 .PHONY: clean cluster compose context deploy
 
-.PHONY: kind-clean
+.PHONY: kind-cluster-clean
 kind-cluster-clean:
 	kind delete cluster --name backup-ns
 	rm -rf .kube/**
@@ -215,7 +215,21 @@ kind-cluster-clean:
 kind-cluster-init:
 	kind create cluster --name backup-ns --config=kind.yaml --kubeconfig .kube/config --image "kindest/node:v1.28.13"
 	$(MAKE) kind-fix-kubeconfig
+	sleep 1
+	$(MAKE) kind-cluster-init-script
 
 .PHONY: kind-fix-kubeconfig
 kind-fix-kubeconfig:
 	sed -i.bak -e 's/127.0.0.1/host.docker.internal/' .kube/config
+
+.PHONY: kind-cluster-init-script
+kind-cluster-init-script:
+	docker-compose up --no-start
+	docker-compose start
+	docker-compose exec service bash test/init_kind.sh
+
+.PHONY: kind-cluster-reset
+kind-cluster-reset:
+	$(MAKE) kind-cluster-clean
+	$(MAKE) kind-cluster-init
+

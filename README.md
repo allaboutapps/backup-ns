@@ -26,9 +26,6 @@ make kind-cluster-init
 # the dev container is autoconfigured to use the above kind cluster
 ./docker-helper --up
 
-development@f4a7ad3b5e3d:/app$ ./test/init_kind.sh
-# this deploys the test database and snapshot handlers to the kind_cluster
-
 development@f4a7ad3b5e3d:/app$ k get nodes
 # NAME                      STATUS   ROLES           AGE   VERSION
 # backup-ns-control-plane   Ready    control-plane   69s   v1.28.13
