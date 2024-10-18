@@ -78,7 +78,7 @@ func LoadConfig() Config {
 		PVCName: getEnv("BAK_PVC_NAME", "data"),
 
 		// A random string to make the volume snapshot name unique (apart from the timestamp)
-		VSRand: getEnv("BAK_VS_RAND", generateRandomString(6)),
+		VSRand: getEnv("BAK_VS_RAND", GenerateRandomString(6)),
 
 		LabelVS: LabelVSConfig{
 			// "backup-ns.sh/type" label value of volume snapshot (e.g. "adhoc" or custom backups, "cronjob" for recurring, etc.)
@@ -129,12 +129,15 @@ func LoadConfig() Config {
 			DumpFile: getEnv("BAK_DB_POSTGRES_DUMP_FILE", "/var/lib/postgresql/data/dump.sql.gz"),
 
 			// The postgresql user to use for connecting/creating the dump (psql and pg_dump must be allowed)
+			// Read from inside the *container* by default (${POSTGRES_USER})
 			User: getEnv("BAK_DB_POSTGRES_USER", "${POSTGRES_USER}"),
 
 			// The postgresql password to use for connecting/creating the dump
+			// Read from inside the *container* by default (${POSTGRES_PASSWORD})
 			Password: getEnv("BAK_DB_POSTGRES_PASSWORD", "${POSTGRES_PASSWORD}"),
 
 			// The postgresql database to use for connecting/creating the dump
+			// Read from inside the *container* by default (${POSTGRES_DB})
 			DB: getEnv("BAK_DB_POSTGRES_DB", "${POSTGRES_DB}"),
 		},
 
@@ -158,9 +161,11 @@ func LoadConfig() Config {
 			User: getEnv("BAK_DB_MYSQL_USER", "root"),
 
 			// The mysql password to use for connecting/creating the dump
+			// Read from inside the *container* by default (${MYSQL_ROOT_PASSWORD})
 			Password: getEnv("BAK_DB_MYSQL_PASSWORD", "${MYSQL_ROOT_PASSWORD}"),
 
 			// The mysql database to use for connecting/creating the dump
+			// Read from inside the *container* by default (${MYSQL_DATABASE})
 			DB: getEnv("BAK_DB_MYSQL_DB", "${MYSQL_DATABASE}"),
 		},
 
@@ -217,13 +222,13 @@ func getCurrentNamespace() string {
 	return string(output)
 }
 
-func generateRandomString(n int) string {
+func GenerateRandomString(n int) string {
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 	b := make([]rune, n)
 	for i := range b {
 		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letterRunes))))
 		if err != nil {
-			log.Fatalf("generateRandomString: Failed to generate secure random number: %v", err)
+			log.Fatalf("GenerateRandomString: Failed to generate secure random number: %v", err)
 		}
 		b[i] = letterRunes[num.Int64()]
 	}
