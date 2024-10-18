@@ -3,6 +3,7 @@ package cmd
 import (
 	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/allaboutapps/backup-ns/internal/lib"
 	"github.com/spf13/cobra"
@@ -48,7 +49,7 @@ func runCreate(_ *cobra.Command, _ []string) {
 		lockFile := lib.FlockShuffleLockFile(config.Flock.Dir, config.Flock.Count)
 		log.Printf("Using lock_file='%s'...", lockFile)
 
-		unlock := lib.FlockLock(lockFile, config.Flock.TimeoutSec, config.DryRun)
+		unlock := lib.FlockLock(lockFile, time.Duration(config.Flock.TimeoutSec)*time.Second, config.DryRun)
 		defer unlock()
 	}
 

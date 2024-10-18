@@ -23,7 +23,7 @@ func FlockShuffleLockFile(dir string, count int) string {
 	return filepath.Join(dir, fmt.Sprintf("%d.lock", n.Int64()+1))
 }
 
-func FlockLock(lockFile string, timeoutSec int, dryRun bool) func() {
+func FlockLock(lockFile string, timeout time.Duration, dryRun bool) func() {
 	if dryRun {
 		log.Println("Skipping flock - dry run mode is active")
 		return func() {}
@@ -34,7 +34,7 @@ func FlockLock(lockFile string, timeoutSec int, dryRun bool) func() {
 		log.Fatalf("Failed to open lock file: %v", err)
 	}
 
-	_, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	_, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	err = syscall.Flock(int(lockFd.Fd()), syscall.LOCK_EX)
