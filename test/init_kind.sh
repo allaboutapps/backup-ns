@@ -3,6 +3,13 @@ set -Eeox pipefail
 
 kubectl version
 kubectl get nodes
+kubectl config current-context
+
+# Exit immediately if the current kubectl context is not kind-backup-ns
+if [[ $(kubectl config current-context) != "kind-backup-ns" ]]; then
+  echo "Current kubectl context is not kind-backup-ns"
+  exit 1
+fi
 
 echo "Installing resouces..."
 # sleep 1
@@ -30,7 +37,16 @@ kubectl config set-context kind-backup-ns --namespace postgres-test
 
 kubectl apply -f ./
 
+cd /app/test/mysql-test
+kubectl apply -f namespace.yaml
+
+kubectl config set-context kind-backup-ns --namespace mysql-test
+
+kubectl apply -f ./
+
 kubectl rollout status deployment database -n postgres-test
+kubectl rollout status deployment database -n mysql-test
 
 # e.g.
-# BAK_DB_POSTGRES=true BAK_DB_POSTGRES_EXEC_RESOURCE=deployment/database BAK_VS_CLASS_NAME=csi-hostpath-snapclass BAK_NAMESPACE=postgres-test app create
+# BAK_VS_CLASS_NAME=csi-hostpath-snapclass BAK_DB_POSTGRES=true BAK_NAMESPACE=postgres-test BAK_DB_POSTGRES_EXEC_RESOURCE=deployment/database app create
+# BAK_VS_CLASS_NAME=csi-hostpath-snapclass BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment/database app create

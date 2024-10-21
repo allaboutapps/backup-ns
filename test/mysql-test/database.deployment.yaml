@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database
+  namespace: mysql-test
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: database
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      containers:
+        - image: mysql:8.0
+          name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "rootpass"
+            - name: MYSQL_USER
+              value: dbuser
+            - name: MYSQL_PASSWORD
+              value: pass
+            - name: MYSQL_DATABASE
+              value: testdb
+          volumeMounts:
+            - name: disk-data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+            - name: config-mysql
+              mountPath: /etc/mysql/conf.d/a3cloud.cnf
+              subPath: a3cloud.cnf
+          ports:
+            - name: mysql
+              containerPort: 3306
+
+      volumes:
+        - name: disk-data
+          persistentVolumeClaim:
+            claimName: data
+        - name: config-mysql
+          configMap:
+            name: mysql

@@ -22,7 +22,7 @@ spec:
           env:
             # test only, never store production db credentials in cleartext
             - name: POSTGRES_DB
-              value: "pgbench_test"
+              value: "testdb"
             - name: POSTGRES_USER
               value: dbuser
             - name: POSTGRES_PASSWORD

@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql
+  namespace: mysql-test
+data:
+  a3cloud.cnf: |-
+    [mysqld]
+
+    # allow to connect from app / app-queue pods
+    bind-address = 0.0.0.0
+
+    # https://mariadb.com/kb/en/configuring-mariadb-for-optimal-performance/
+    # You should set innodb_buffer_pool_size to about 80% of your memory. The goal is to ensure that 80 % of your working set is in memory!
+    innodb_buffer_pool_size = 128MB
+
+    # max_connections defaults to 151, ONLY adapt this if the DB becomes the bottleneck!
+    # max_connections = 151
+
+    # CraftCMS: We absolutely require performance_schema to be enabled.
+    # https://mariadb.com/resources/blog/starting-mysql-low-memory-virtual-machines
+    performance_schema = on
+
+    # https://mariadb.com/kb/en/configuring-mariadb-for-optimal-performance/
+    # A Lot of Fast Connections + Small Set of Queries + Disconnects¶
+    # If you are doing a lot of fast connections / disconnects, you should increase back_log and if you are running MariaDB 10.1 or below thread_cache_size.
+    # If you have a lot (> 128) of simultaneous running fast queries, you should consider setting thread_handling to pool_of_threads.
+    # Defaults to "The lower of 900 and (50 + max_connections/5) (>= MariaDB 10.1.7)" 50 + (151/5) = 80
+    back_log = 200
+
+    # DNS lookups are expensive and we have no connection pool with php/wordpress
+    # Therefore, we fully disable DNS name resolve for client-connections on our database (cache is no longer used, also disabled)
+    # see https://dev.mysql.com/doc/refman/5.5/en/server-options.html#option_mysqld_skip-name-resolve
+    # see https://dev.mysql.com/doc/refman/5.5/en/server-options.html#option_mysqld_skip-host-cache
+    skip-name-resolve
