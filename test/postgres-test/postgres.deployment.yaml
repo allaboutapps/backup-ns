@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: database
+  name: postgres
   namespace: postgres-test
 spec:
   replicas: 1
@@ -9,11 +9,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: database
+      app: postgres
   template:
     metadata:
       labels:
-        app: database
+        app: postgres
     spec:
       containers:
         # https://hub.docker.com/_/postgres

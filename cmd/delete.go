@@ -1,12 +1,9 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
-	"os"
-	"os/exec"
-	"strings"
 
+	"github.com/allaboutapps/backup-ns/internal/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +32,7 @@ func runDelete(_ *cobra.Command, args []string) {
 
 	if namespace == "" {
 		var err error
-		namespace, err = getCurrentNamespace()
+		namespace, err = lib.GetCurrentNamespace()
 		if err != nil {
 			log.Fatalf("Error getting current namespace from context: %v\n", err)
 		}
@@ -43,61 +40,11 @@ func runDelete(_ *cobra.Command, args []string) {
 
 	log.Printf("Using namespace '%s'.\n", namespace)
 
-	// Get the VolumeSnapshotContent name
-	vscName, err := getVolumeSnapshotContentName(namespace, volumeSnapshotName)
-	if err != nil {
-		log.Printf("Error getting VolumeSnapshotContent name: %v\n", err)
-		os.Exit(1)
-	}
+	lib.PruneVolumeSnapshot(namespace, volumeSnapshotName)
 
-	// Patch the VolumeSnapshotContent to set deletionPolicy to Delete
-	if err := patchVolumeSnapshotContent(vscName); err != nil {
-		log.Printf("Error patching VolumeSnapshotContent: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Delete the VolumeSnapshot
-	if err := deleteVolumeSnapshot(namespace, volumeSnapshotName); err != nil {
-		log.Printf("Error deleting VolumeSnapshot: %v\n", err)
-		os.Exit(1)
+	if err := lib.PruneVolumeSnapshot(namespace, volumeSnapshotName); err != nil {
+		log.Fatalf("Error deleting VolumeSnapshot: %v\n", err)
 	}
 
 	log.Printf("Successfully deleted VolumeSnapshot %s in namespace %s\n", volumeSnapshotName, namespace)
-}
-
-func getCurrentNamespace() (string, error) {
-	cmd := exec.Command("kubectl", "config", "view", "--minify", "--output", "jsonpath={..namespace}")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("error getting current namespace: %w", err)
-	}
-	return string(output), nil
-}
-
-func getVolumeSnapshotContentName(namespace, volumeSnapshotName string) (string, error) {
-	cmd := exec.Command("kubectl", "get", "volumesnapshot", volumeSnapshotName, "-n", namespace, "-o", "jsonpath={.status.boundVolumeSnapshotContentName}")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("failed to get VolumeSnapshotContent name: %w, output: %s", err, output)
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
-func patchVolumeSnapshotContent(vscName string) error {
-	patchCmd := exec.Command("kubectl", "patch", "volumesnapshotcontent", vscName, "--type", "merge", "-p", `{"spec":{"deletionPolicy":"Delete"}}`)
-	output, err := patchCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to patch VolumeSnapshotContent: %w, output: %s", err, output)
-	}
-	log.Printf("Successfully patched VolumeSnapshotContent %s deletionPolicy to 'Delete'\n", vscName)
-	return nil
-}
-
-func deleteVolumeSnapshot(namespace, volumeSnapshotName string) error {
-	deleteCmd := exec.Command("kubectl", "delete", "volumesnapshot", volumeSnapshotName, "-n", namespace)
-	output, err := deleteCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to delete VolumeSnapshot: %w, output: %s", err, output)
-	}
-	return nil
 }

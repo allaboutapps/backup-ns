@@ -30,12 +30,16 @@ kubectl rollout status statefulset csi-hostpathplugin -n default
 cd /app/test/kube-system
 kubectl kustomize . | kubectl apply -f - || true
 
+# ----------------------------
+# applications setup...
+
 cd /app/test/postgres-test
 kubectl apply -f namespace.yaml
 
 kubectl config set-context kind-backup-ns --namespace postgres-test
 
 kubectl apply -f ./
+
 
 cd /app/test/mysql-test
 kubectl apply -f namespace.yaml
@@ -44,8 +48,17 @@ kubectl config set-context kind-backup-ns --namespace mysql-test
 
 kubectl apply -f ./
 
-kubectl rollout status deployment database -n postgres-test
-kubectl rollout status deployment database -n mysql-test
+
+cd /app/test/generic-test
+kubectl apply -f namespace.yaml
+
+kubectl config set-context kind-backup-ns --namespace generic-test
+
+kubectl apply -f ./
+
+kubectl rollout status deployment postgres -n postgres-test
+kubectl rollout status deployment mysql -n mysql-test
+kubectl rollout status deployment writer -n generic-test
 
 # e.g.
 # BAK_VS_CLASS_NAME=csi-hostpath-snapclass BAK_DB_POSTGRES=true BAK_NAMESPACE=postgres-test BAK_DB_POSTGRES_EXEC_RESOURCE=deployment/database app create

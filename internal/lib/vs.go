@@ -168,3 +168,55 @@ func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject
 		log.Printf("VolumeSnapshot details:\n%s", string(output))
 	}
 }
+
+func getVolumeSnapshotContentName(namespace, volumeSnapshotName string) (string, error) {
+	cmd := exec.Command("kubectl", "get", "volumesnapshot", volumeSnapshotName, "-n", namespace, "-o", "jsonpath={.status.boundVolumeSnapshotContentName}")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get VolumeSnapshotContent name: %w, output: %s", err, output)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func patchVolumeSnapshotContent(vscName string) error {
+	patchCmd := exec.Command("kubectl", "patch", "volumesnapshotcontent", vscName, "--type", "merge", "-p", `{"spec":{"deletionPolicy":"Delete"}}`)
+	output, err := patchCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to patch VolumeSnapshotContent: %w, output: %s", err, output)
+	}
+	log.Printf("Successfully patched VolumeSnapshotContent %s deletionPolicy to 'Delete'\n", vscName)
+	return nil
+}
+
+func deleteVolumeSnapshot(namespace, volumeSnapshotName string) error {
+	deleteCmd := exec.Command("kubectl", "delete", "volumesnapshot", volumeSnapshotName, "-n", namespace)
+	output, err := deleteCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to delete VolumeSnapshot: %w, output: %s", err, output)
+	}
+	return nil
+}
+
+// Dangerous!
+// Delete a VolumeSnapshot, its associated VolumeSnapshotContent and the underlying storage!
+// This is a destructive operation and should be used with caution!
+// This function will set the deletionPolicy of the VolumeSnapshotContent to "Delete" before deleting the VolumeSnapshot, thus ensuring the underlying storage is also deleted.
+func PruneVolumeSnapshot(namespace, volumeSnapshotName string) error {
+	// Get the VolumeSnapshotContent name
+	vscName, err := getVolumeSnapshotContentName(namespace, volumeSnapshotName)
+	if err != nil {
+		return err
+	}
+
+	// Patch the VolumeSnapshotContent to set deletionPolicy to Delete
+	if err := patchVolumeSnapshotContent(vscName); err != nil {
+		return err
+	}
+
+	// Delete the VolumeSnapshot
+	if err := deleteVolumeSnapshot(namespace, volumeSnapshotName); err != nil {
+		return err
+	}
+
+	return nil
+}

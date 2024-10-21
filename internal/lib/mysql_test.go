@@ -15,7 +15,7 @@ func TestBackupMySQL(t *testing.T) {
 
 	mysqlConfig := lib.MySQLConfig{
 		Enabled:       true,
-		ExecResource:  "deployment/database",
+		ExecResource:  "deployment/mysql",
 		ExecContainer: "mysql",
 		DumpFile:      "/var/lib/mysql/dump.sql.gz",
 		Host:          "127.0.0.1",
@@ -26,14 +26,14 @@ func TestBackupMySQL(t *testing.T) {
 
 	labelVSConfig := lib.LabelVSConfig{
 		Type:       "adhoc",
-		Pod:        "",
+		Pod:        "gotest",
 		Retain:     "days",
 		RetainDays: 1,
 	}
 
 	lib.EnsurePVCAvailable("mysql-test", "data")
 
-	lib.EnsureResourceAvailable(namespace, "deployment/database")
+	lib.EnsureResourceAvailable(namespace, mysqlConfig.ExecResource)
 	lib.EnsureMySQLAvailable(namespace, mysqlConfig)
 	lib.EnsureFreeSpace(namespace, mysqlConfig.ExecResource,
 		mysqlConfig.ExecContainer, filepath.Dir(mysqlConfig.DumpFile), 90)

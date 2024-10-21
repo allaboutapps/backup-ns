@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: writer
+  namespace: generic-test
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: writer
+  template:
+    metadata:
+      labels:
+        app: writer
+    spec:
+      containers:
+        - name: debian
+          image: debian:bookworm
+          command: ["/bin/sh"]
+          args:
+            [
+              "-c",
+              'touch /app/cnt && apt-get update && apt-get install -y lockfile-progs && echo ''starting...'' && while true; do lockfile-create /app/cnt && n=$(cat /app/cnt) && m=$(( n + 1 )) && echo $m > /app/cnt && echo "$(date) $m" && lockfile-remove /app/cnt; sleep 10; done',
+            ]
+          volumeMounts:
+            - name: disk-data
+              mountPath: /app
+              subPath: app
+
+      volumes:
+        - name: disk-data
+          persistentVolumeClaim:
+            claimName: data

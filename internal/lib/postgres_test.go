@@ -15,7 +15,7 @@ func TestBackupPostgres(t *testing.T) {
 
 	postgresConfig := lib.PostgresConfig{
 		Enabled:       true,
-		ExecResource:  "deployment/database",
+		ExecResource:  "deployment/postgres",
 		ExecContainer: "postgres",
 		DumpFile:      "/var/lib/postgresql/data/dump.sql.gz",
 		User:          "${POSTGRES_USER}",     // read inside container
@@ -25,14 +25,14 @@ func TestBackupPostgres(t *testing.T) {
 
 	labelVSConfig := lib.LabelVSConfig{
 		Type:       "adhoc",
-		Pod:        "",
+		Pod:        "gotest",
 		Retain:     "days",
 		RetainDays: 1,
 	}
 
 	lib.EnsurePVCAvailable("postgres-test", "data")
 
-	lib.EnsureResourceAvailable(namespace, "deployment/database")
+	lib.EnsureResourceAvailable(namespace, postgresConfig.ExecResource)
 	lib.EnsurePostgresAvailable(namespace, postgresConfig)
 	lib.EnsureFreeSpace(namespace, postgresConfig.ExecResource,
 		postgresConfig.ExecContainer, filepath.Dir(postgresConfig.DumpFile), 90)
