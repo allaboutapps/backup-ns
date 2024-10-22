@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func EnsureMySQLAvailable(namespace string, config MySQLConfig) {
+func EnsureMySQLAvailable(namespace string, config MySQLConfig) error {
 	log.Printf("Checking if MySQL is available in namespace '%s'...", namespace)
 
 	script := fmt.Sprintf(`
@@ -34,16 +34,16 @@ func EnsureMySQLAvailable(namespace string, config MySQLConfig) {
 	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Error checking MySQL availability: %v\nOutput: %s", err, string(output))
-		log.Fatalf("MySQL not available in namespace '%s'", namespace)
+		return fmt.Errorf("Error checking MySQL availability: %v\nOutput: %s", err, string(output))
 	}
 	log.Printf("MySQL is available in namespace '%s'. Output:\n%s", namespace, string(output))
+	return nil
 }
 
-func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) {
+func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) error {
 	if dryRun {
 		log.Println("Skipping MySQL backup - dry run mode is active")
-		return
+		return nil
 	}
 	log.Printf("Backing up MySQL database '%s' in namespace '%s'...", config.DB, namespace)
 
@@ -87,8 +87,8 @@ func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) {
 	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Error backing up MySQL: %v\nOutput: %s", err, string(output))
-		log.Fatal("MySQL backup failed")
+		return fmt.Errorf("Error backing up MySQL: %v\nOutput: %s", err, string(output))
 	}
 	log.Printf("MySQL backup completed. Output:\n%s", string(output))
+	return nil
 }
