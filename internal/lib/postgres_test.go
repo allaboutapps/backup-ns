@@ -31,15 +31,20 @@ func TestBackupPostgres(t *testing.T) {
 		RetainDays: 1,
 	}
 
-	lib.EnsurePVCAvailable("postgres-test", "data")
+	if err := lib.EnsurePVCAvailable("postgres-test", "data"); err != nil {
+		t.Fatal("ensure pvc failed: ", err)
+	}
 
 	if err := lib.EnsureResourceAvailable(namespace, postgresConfig.ExecResource); err != nil {
 		t.Fatal("ensure res failed: ", err)
 	}
 
 	lib.EnsurePostgresAvailable(namespace, postgresConfig)
-	lib.EnsureFreeSpace(namespace, postgresConfig.ExecResource,
-		postgresConfig.ExecContainer, filepath.Dir(postgresConfig.DumpFile), 90)
+
+	if err := lib.EnsureFreeSpace(namespace, postgresConfig.ExecResource, postgresConfig.ExecContainer, filepath.Dir(postgresConfig.DumpFile), 90); err != nil {
+		t.Fatal("ensure free space failed: ", err)
+	}
+
 	lib.BackupPostgres(namespace, false, postgresConfig)
 
 	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)

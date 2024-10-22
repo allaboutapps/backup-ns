@@ -228,7 +228,7 @@ func PrintConfig(config Config) {
 	c, err := json.MarshalIndent(config, "", "  ")
 
 	if err != nil {
-		log.Fatalf("Failed to PrintConfig")
+		log.Panic("Failed to PrintConfig")
 	}
 
 	log.Println("Config:", string(c))

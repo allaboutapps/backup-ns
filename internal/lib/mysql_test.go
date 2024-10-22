@@ -31,15 +31,20 @@ func TestBackupMySQL(t *testing.T) {
 		RetainDays: 1,
 	}
 
-	lib.EnsurePVCAvailable("mysql-test", "data")
+	if err := lib.EnsurePVCAvailable("mysql-test", "data"); err != nil {
+		t.Fatal("ensure pvc failed: ", err)
+	}
 
 	if err := lib.EnsureResourceAvailable(namespace, mysqlConfig.ExecResource); err != nil {
 		t.Fatal("ensure res failed: ", err)
 	}
 
 	lib.EnsureMySQLAvailable(namespace, mysqlConfig)
-	lib.EnsureFreeSpace(namespace, mysqlConfig.ExecResource,
-		mysqlConfig.ExecContainer, filepath.Dir(mysqlConfig.DumpFile), 90)
+
+	if err := lib.EnsureFreeSpace(namespace, mysqlConfig.ExecResource, mysqlConfig.ExecContainer, filepath.Dir(mysqlConfig.DumpFile), 90); err != nil {
+		t.Fatal("ensure free space failed: ", err)
+	}
+
 	lib.BackupMySQL(namespace, false, mysqlConfig)
 
 	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)

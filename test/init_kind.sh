@@ -59,7 +59,3 @@ kubectl apply -f ./
 kubectl rollout status deployment postgres -n postgres-test
 kubectl rollout status deployment mysql -n mysql-test
 kubectl rollout status deployment writer -n generic-test
-
-# e.g.
-# BAK_VS_CLASS_NAME=csi-hostpath-snapclass BAK_DB_POSTGRES=true BAK_NAMESPACE=postgres-test BAK_DB_POSTGRES_EXEC_RESOURCE=deployment/database app create
-# BAK_VS_CLASS_NAME=csi-hostpath-snapclass BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment/database app create

@@ -59,15 +59,19 @@ func runCreate(_ *cobra.Command, _ []string) {
 	}
 	log.Println("VS Name:", vsName)
 
-	lib.EnsurePVCAvailable(config.Namespace, config.PVCName)
+	if err := lib.EnsurePVCAvailable(config.Namespace, config.PVCName); err != nil {
+		log.Fatal(err)
+	}
 
 	if config.Postgres.Enabled {
 		if err := lib.EnsureResourceAvailable(config.Namespace, config.Postgres.ExecResource); err != nil {
 			log.Fatal(err)
 		}
 		lib.EnsurePostgresAvailable(config.Namespace, config.Postgres)
-		lib.EnsureFreeSpace(config.Namespace, config.Postgres.ExecResource,
-			config.Postgres.ExecContainer, filepath.Dir(config.Postgres.DumpFile), config.ThresholdSpaceUsedPercent)
+		if err := lib.EnsureFreeSpace(config.Namespace, config.Postgres.ExecResource, config.Postgres.ExecContainer, filepath.Dir(config.Postgres.DumpFile), config.ThresholdSpaceUsedPercent); err != nil {
+			log.Fatal(err)
+		}
+
 		lib.BackupPostgres(config.Namespace, config.DryRun, config.Postgres)
 	}
 
@@ -76,8 +80,10 @@ func runCreate(_ *cobra.Command, _ []string) {
 			log.Fatal(err)
 		}
 		lib.EnsureMySQLAvailable(config.Namespace, config.MySQL)
-		lib.EnsureFreeSpace(config.Namespace, config.MySQL.ExecResource,
-			config.MySQL.ExecContainer, filepath.Dir(config.MySQL.DumpFile), config.ThresholdSpaceUsedPercent)
+		if err := lib.EnsureFreeSpace(config.Namespace, config.MySQL.ExecResource, config.MySQL.ExecContainer, filepath.Dir(config.MySQL.DumpFile), config.ThresholdSpaceUsedPercent); err != nil {
+			log.Fatal(err)
+		}
+
 		lib.BackupMySQL(config.Namespace, config.DryRun, config.MySQL)
 	}
 
