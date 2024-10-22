@@ -53,13 +53,18 @@ func runCreate(_ *cobra.Command, _ []string) {
 		defer unlock()
 	}
 
-	vsName := lib.GenerateVSName(config.VSNameTemplate, config.PVCName, config.VSRand)
+	vsName, err := lib.GenerateVSName(config.VSNameTemplate, config.PVCName, config.VSRand)
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.Println("VS Name:", vsName)
 
 	lib.EnsurePVCAvailable(config.Namespace, config.PVCName)
 
 	if config.Postgres.Enabled {
-		lib.EnsureResourceAvailable(config.Namespace, config.Postgres.ExecResource)
+		if err := lib.EnsureResourceAvailable(config.Namespace, config.Postgres.ExecResource); err != nil {
+			log.Fatal(err)
+		}
 		lib.EnsurePostgresAvailable(config.Namespace, config.Postgres)
 		lib.EnsureFreeSpace(config.Namespace, config.Postgres.ExecResource,
 			config.Postgres.ExecContainer, filepath.Dir(config.Postgres.DumpFile), config.ThresholdSpaceUsedPercent)
@@ -67,7 +72,9 @@ func runCreate(_ *cobra.Command, _ []string) {
 	}
 
 	if config.MySQL.Enabled {
-		lib.EnsureResourceAvailable(config.Namespace, config.MySQL.ExecResource)
+		if err := lib.EnsureResourceAvailable(config.Namespace, config.MySQL.ExecResource); err != nil {
+			log.Fatal(err)
+		}
 		lib.EnsureMySQLAvailable(config.Namespace, config.MySQL)
 		lib.EnsureFreeSpace(config.Namespace, config.MySQL.ExecResource,
 			config.MySQL.ExecContainer, filepath.Dir(config.MySQL.DumpFile), config.ThresholdSpaceUsedPercent)
@@ -79,7 +86,9 @@ func runCreate(_ *cobra.Command, _ []string) {
 
 	vsObject := lib.GenerateVSObject(config.Namespace, config.VSClassName, config.PVCName, vsName, vsLabels, vsAnnotations)
 
-	lib.CreateVolumeSnapshot(config.Namespace, config.DryRun, vsName, vsObject, config.VSWaitUntilReady, config.VSWaitUntilReadyTimeout)
+	if err := lib.CreateVolumeSnapshot(config.Namespace, config.DryRun, vsName, vsObject, config.VSWaitUntilReady, config.VSWaitUntilReadyTimeout); err != nil {
+		log.Fatal(err)
+	}
 
 	log.Printf("Finished backup vs_name='%s' in namespace='%s'!", vsName, config.Namespace)
 }

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) string {
+func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) (string, error) {
 	templ := template.Must(template.New("vsNameTemplate").Parse(vsNameTemplate))
 	var buf bytes.Buffer
 
@@ -23,10 +23,10 @@ func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) string
 	})
 
 	if err != nil {
-		log.Fatalf("Error generating vsNameTemplate: %v", err)
+		return "", fmt.Errorf("Error generating vsNameTemplate: %w", err)
 	}
 
-	return buf.String()
+	return buf.String(), nil
 }
 
 func GenerateVSLabels(namespace, pvcName string, config LabelVSConfig) map[string]string {
@@ -71,7 +71,7 @@ func volumeSnapshotWithLabelValueExists(namespace, labelKey, labelValue string) 
 	output, err := cmd.Output()
 	if err != nil {
 		log.Printf("Error checking for existing VolumeSnapshot: %v", err)
-		return false
+		return true // assume it exists to be safe, we don't want to delete existing snapshots by accident with the pruner!
 	}
 	return len(output) > 0
 }
@@ -116,22 +116,22 @@ func GenerateVSObject(namespace, vsClassName, pvcName, vsName string, labels, an
 	return manifest
 }
 
-func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject map[string]interface{}, wait bool, waitTimeout string) {
+func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject map[string]interface{}, wait bool, waitTimeout string) error {
 	stringifiedVSObject, err := json.MarshalIndent(vsObject, "", "  ")
 	if err != nil {
-		log.Fatalf("Error marshaling VolumeSnapshot object: %v", err)
+		return fmt.Errorf("Error marshalIndent VolumeSnapshot object: %w", err)
 	}
 
 	log.Printf("Creating VolumeSnapshot '%s' in namespace '%s'...\n%s", vsName, namespace, string(stringifiedVSObject))
 
 	if dryRun {
 		log.Println("Skipping VolumeSnapshot creation - dry run mode is active")
-		return
+		return nil
 	}
 
 	vsJSON, err := json.Marshal(vsObject)
 	if err != nil {
-		log.Fatalf("Error marshaling VolumeSnapshot object: %v", err)
+		return fmt.Errorf("Error marshaling VolumeSnapshot object: %w", err)
 	}
 
 	// #nosec G204
@@ -139,7 +139,7 @@ func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject
 	cmd.Stdin = bytes.NewReader(vsJSON)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Fatalf("Error creating VolumeSnapshot: %v. Output:\n%s", err, string(output))
+		return fmt.Errorf("Error creating VolumeSnapshot: %w. Output:\n%s", err, string(output))
 	}
 
 	if wait {
@@ -155,7 +155,7 @@ func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject
 		// log.Println(cmd.String())
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Printf("Warning: VolumeSnapshot '%s' may not be ready: %v. Output:\n%s", vsName, err, string(output))
+			return fmt.Errorf("VolumeSnapshot '%s' did not become ready: %w. Output:\n%s", vsName, err, string(output))
 		}
 	}
 
@@ -163,10 +163,11 @@ func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject
 	cmd = exec.Command("kubectl", "get", "volumesnapshot/"+vsName, "-n", namespace)
 	output, err = cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Warning: Error getting VolumeSnapshot details: %v. Output:\n%s", err, string(output))
-	} else {
-		log.Printf("VolumeSnapshot details:\n%s", string(output))
+		return fmt.Errorf("Error getting VolumeSnapshot details: %w. Output:\n%s", err, string(output))
 	}
+
+	log.Printf("VolumeSnapshot details:\n%s", string(output))
+	return nil
 }
 
 func getVolumeSnapshotContentName(namespace, volumeSnapshotName string) (string, error) {

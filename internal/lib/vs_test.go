@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/allaboutapps/backup-ns/internal/lib"
+	"github.com/stretchr/testify/require"
 )
 
-func TestVolumeCreateDelete(t *testing.T) {
+func TestVolumeCreateAndDelete(t *testing.T) {
 	vsName := fmt.Sprintf("test-backup-generic-%s", lib.GenerateRandomString(6))
 	namespace := "generic-test"
 
@@ -23,7 +24,9 @@ func TestVolumeCreateDelete(t *testing.T) {
 
 	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)
 
-	lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, true, "25s")
+	if err := lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, true, "25s"); err != nil {
+		t.Fatal("create vs failed: ", err)
+	}
 
 	cmd := exec.Command("kubectl", "get", "vs", vsName, "-n", namespace)
 	output, err := cmd.CombinedOutput()
@@ -36,4 +39,22 @@ func TestVolumeCreateDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal("delete vs failed: ", err)
 	}
+}
+
+func TestVolumeCreateFailsNameSpace(t *testing.T) {
+	vsName := fmt.Sprintf("test-backup-generic-%s", lib.GenerateRandomString(6))
+	namespace := "non-existant-namespace" // !!!
+
+	labelVSConfig := lib.LabelVSConfig{
+		Type:   "adhoc",
+		Pod:    "gotest",
+		Retain: "daily_weekly_monthly",
+	}
+
+	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)
+	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
+
+	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)
+
+	require.Error(t, lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, true, "25s"))
 }

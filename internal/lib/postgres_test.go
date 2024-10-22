@@ -32,7 +32,10 @@ func TestBackupPostgres(t *testing.T) {
 
 	lib.EnsurePVCAvailable("postgres-test", "data")
 
-	lib.EnsureResourceAvailable(namespace, postgresConfig.ExecResource)
+	if err := lib.EnsureResourceAvailable(namespace, postgresConfig.ExecResource); err != nil {
+		t.Fatal("ensure res failed: ", err)
+	}
+
 	lib.EnsurePostgresAvailable(namespace, postgresConfig)
 	lib.EnsureFreeSpace(namespace, postgresConfig.ExecResource,
 		postgresConfig.ExecContainer, filepath.Dir(postgresConfig.DumpFile), 90)
@@ -43,7 +46,9 @@ func TestBackupPostgres(t *testing.T) {
 
 	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)
 
-	lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, false, "15m")
+	if err := lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, false, "25s"); err != nil {
+		t.Fatal("create vs failed: ", err)
+	}
 
 	cmd := exec.Command("kubectl", "get", "vs", vsName, "-n", namespace)
 	output, err := cmd.CombinedOutput()

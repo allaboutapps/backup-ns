@@ -33,7 +33,10 @@ func TestBackupMySQL(t *testing.T) {
 
 	lib.EnsurePVCAvailable("mysql-test", "data")
 
-	lib.EnsureResourceAvailable(namespace, mysqlConfig.ExecResource)
+	if err := lib.EnsureResourceAvailable(namespace, mysqlConfig.ExecResource); err != nil {
+		t.Fatal("ensure res failed: ", err)
+	}
+
 	lib.EnsureMySQLAvailable(namespace, mysqlConfig)
 	lib.EnsureFreeSpace(namespace, mysqlConfig.ExecResource,
 		mysqlConfig.ExecContainer, filepath.Dir(mysqlConfig.DumpFile), 90)
@@ -44,7 +47,9 @@ func TestBackupMySQL(t *testing.T) {
 
 	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)
 
-	lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, false, "15m")
+	if err := lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, false, "25s"); err != nil {
+		t.Fatal("create vs failed: ", err)
+	}
 
 	cmd := exec.Command("kubectl", "get", "vs", vsName, "-n", namespace)
 	output, err := cmd.CombinedOutput()
