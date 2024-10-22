@@ -39,13 +39,17 @@ func TestBackupMySQL(t *testing.T) {
 		t.Fatal("ensure res failed: ", err)
 	}
 
-	lib.EnsureMySQLAvailable(namespace, mysqlConfig)
+	if err := lib.EnsureMySQLAvailable(namespace, mysqlConfig); err != nil {
+		t.Fatal("ensure MySQL available failed: ", err)
+	}
 
 	if err := lib.EnsureFreeSpace(namespace, mysqlConfig.ExecResource, mysqlConfig.ExecContainer, filepath.Dir(mysqlConfig.DumpFile), 90); err != nil {
 		t.Fatal("ensure free space failed: ", err)
 	}
 
-	lib.BackupMySQL(namespace, false, mysqlConfig)
+	if err := lib.BackupMySQL(namespace, false, mysqlConfig); err != nil {
+		t.Fatal("backup MySQL failed: ", err)
+	}
 
 	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)
 	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())

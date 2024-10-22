@@ -39,13 +39,17 @@ func TestBackupPostgres(t *testing.T) {
 		t.Fatal("ensure res failed: ", err)
 	}
 
-	lib.EnsurePostgresAvailable(namespace, postgresConfig)
+	if err := lib.EnsurePostgresAvailable(namespace, postgresConfig); err != nil {
+		t.Fatal("ensure Postgres available failed: ", err)
+	}
 
 	if err := lib.EnsureFreeSpace(namespace, postgresConfig.ExecResource, postgresConfig.ExecContainer, filepath.Dir(postgresConfig.DumpFile), 90); err != nil {
 		t.Fatal("ensure free space failed: ", err)
 	}
 
-	lib.BackupPostgres(namespace, false, postgresConfig)
+	if err := lib.BackupPostgres(namespace, false, postgresConfig); err != nil {
+		t.Fatal("backup Postgres failed: ", err)
+	}
 
 	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)
 	vsAnnotations := lib.GenerateVSAnnotations(map[string]string{

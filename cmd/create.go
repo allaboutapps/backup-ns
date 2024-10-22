@@ -75,24 +75,32 @@ func runCreate(_ *cobra.Command, _ []string) {
 		if err := lib.EnsureResourceAvailable(config.Namespace, config.Postgres.ExecResource); err != nil {
 			log.Fatal(err)
 		}
-		lib.EnsurePostgresAvailable(config.Namespace, config.Postgres)
+		if err := lib.EnsurePostgresAvailable(config.Namespace, config.Postgres); err != nil {
+			log.Fatal(err)
+		}
 		if err := lib.EnsureFreeSpace(config.Namespace, config.Postgres.ExecResource, config.Postgres.ExecContainer, filepath.Dir(config.Postgres.DumpFile), config.ThresholdSpaceUsedPercent); err != nil {
 			log.Fatal(err)
 		}
 
-		lib.BackupPostgres(config.Namespace, config.DryRun, config.Postgres)
+		if err := lib.BackupPostgres(config.Namespace, config.DryRun, config.Postgres); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if config.MySQL.Enabled {
 		if err := lib.EnsureResourceAvailable(config.Namespace, config.MySQL.ExecResource); err != nil {
 			log.Fatal(err)
 		}
-		lib.EnsureMySQLAvailable(config.Namespace, config.MySQL)
+		if err := lib.EnsureMySQLAvailable(config.Namespace, config.MySQL); err != nil {
+			log.Fatal(err)
+		}
 		if err := lib.EnsureFreeSpace(config.Namespace, config.MySQL.ExecResource, config.MySQL.ExecContainer, filepath.Dir(config.MySQL.DumpFile), config.ThresholdSpaceUsedPercent); err != nil {
 			log.Fatal(err)
 		}
 
-		lib.BackupMySQL(config.Namespace, config.DryRun, config.MySQL)
+		if err := lib.BackupMySQL(config.Namespace, config.DryRun, config.MySQL); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	vsLabels := lib.GenerateVSLabels(config.Namespace, config.PVCName, config.LabelVS)
