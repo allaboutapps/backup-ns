@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func EnsurePostgresAvailable(namespace string, config PostgresConfig) {
+func EnsurePostgresAvailable(namespace string, config PostgresConfig) error {
 	log.Printf("Checking if Postgres is available in namespace '%s'...", namespace)
 
 	script := fmt.Sprintf(`
@@ -29,18 +29,18 @@ func EnsurePostgresAvailable(namespace string, config PostgresConfig) {
 	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Error checking Postgres availability: %v\nOutput: %s", err, string(output))
-		log.Fatalf("Postgres not available in namespace '%s'", namespace)
+		return fmt.Errorf("Error checking Postgres availability: %w\nOutput: %s", err, string(output))
 	}
 	log.Printf("Postgres is available in namespace '%s'. Output:\n%s", namespace, string(output))
+	return nil
 }
 
 // TODO: find a way to kill the remote process (e.g. pgdump / mysqldump) the exec command started
 // in the case if origin process on the host terminates (or if we lose connection?)
-func BackupPostgres(namespace string, dryRun bool, config PostgresConfig) {
+func BackupPostgres(namespace string, dryRun bool, config PostgresConfig) error {
 	if dryRun {
 		log.Println("Skipping Postgres backup - dry run mode is active")
-		return
+		return nil
 	}
 	log.Printf("Backing up Postgres database '%s' in namespace '%s'...", config.DB, namespace)
 
@@ -73,8 +73,8 @@ func BackupPostgres(namespace string, dryRun bool, config PostgresConfig) {
 	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Error backing up Postgres: %v\nOutput: %s", err, string(output))
-		log.Fatal("Postgres backup failed")
+		return fmt.Errorf("Error backing up Postgres: %w\nOutput: %s", err, string(output))
 	}
 	log.Printf("Postgres backup completed. Output:\n%s", string(output))
+	return nil
 }
