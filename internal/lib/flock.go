@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -18,40 +19,63 @@ import (
 func FlockShuffleLockFile(dir string, count int) string {
 	n, err := rand.Int(rand.Reader, big.NewInt(int64(count)))
 	if err != nil {
-		log.Fatalf("flockShuffleLockFile: Failed to generate secure random number: %v", err)
+		log.Panicf("flockShuffleLockFile: Failed to generate secure random number: %v", err)
 	}
 	return filepath.Join(dir, fmt.Sprintf("%d.lock", n.Int64()+1))
 }
 
-func FlockLock(lockFile string, timeout time.Duration, dryRun bool) func() {
+var noop = func() error { return nil }
+
+func FlockLock(lockFile string, timeout time.Duration, dryRun bool) (func() error, error) {
 	if dryRun {
 		log.Println("Skipping flock - dry run mode is active")
-		return func() {}
+		return noop, nil
 	}
 
 	lockFd, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
-		log.Fatalf("Failed to open lock file: %v", err)
+		return noop, fmt.Errorf("Failed to open lock file: %w", err)
 	}
 
-	_, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	err = syscall.Flock(int(lockFd.Fd()), syscall.LOCK_EX)
-	if err != nil {
-		log.Fatalf("Failed to acquire lock: %v", err)
+	lockChan := make(chan error, 1)
+	mu := &sync.Mutex{}
+
+	go func() {
+		mu.Lock()
+		defer mu.Unlock()
+		lockChan <- syscall.Flock(int(lockFd.Fd()), syscall.LOCK_EX)
+	}()
+
+	select {
+	case <-ctx.Done():
+		mu.Lock()
+		defer mu.Unlock()
+		lockFd.Close()
+		return noop, fmt.Errorf("Timeout while trying to acquire lock: %w", err)
+	case err := <-lockChan:
+		if err != nil {
+			mu.Lock()
+			defer mu.Unlock()
+			lockFd.Close()
+			return noop, fmt.Errorf("Failed to acquire lock: %w", err)
+		}
 	}
 
 	log.Printf("Got lock on '%s'!", lockFile)
 
-	return func() {
-		err := syscall.Flock(int(lockFd.Fd()), syscall.LOCK_UN)
-		if err != nil {
-			log.Printf("Warning: Failed to release lock: %v", err)
+	return func() error {
+		mu.Lock()
+		defer mu.Unlock()
+		if err := syscall.Flock(int(lockFd.Fd()), syscall.LOCK_UN); err != nil {
+			return fmt.Errorf("Failed to release lock: %w", err)
 		}
 		lockFd.Close()
 		log.Printf("Released lock from '%s'", lockFile)
-	}
+		return nil
+	}, nil
 }
 
 func getDefaultFlockCount() int {

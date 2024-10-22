@@ -49,8 +49,16 @@ func runCreate(_ *cobra.Command, _ []string) {
 		lockFile := lib.FlockShuffleLockFile(config.Flock.Dir, config.Flock.Count)
 		log.Printf("Using lock_file='%s'...", lockFile)
 
-		unlock := lib.FlockLock(lockFile, time.Duration(config.Flock.TimeoutSec)*time.Second, config.DryRun)
-		defer unlock()
+		unlock, err := lib.FlockLock(lockFile, time.Duration(config.Flock.TimeoutSec)*time.Second, config.DryRun)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		defer func() {
+			if err := unlock(); err != nil {
+				log.Printf("deferred unlock err %v", err)
+			}
+		}()
 	}
 
 	vsName, err := lib.GenerateVSName(config.VSNameTemplate, config.PVCName, config.VSRand)
