@@ -1,0 +1,25 @@
+{
+	"apiVersion": "snapshot.storage.k8s.io/v1",
+	"kind": "VolumeSnapshot",
+	"metadata": {
+		"annotations": {
+			"backup-ns.sh/env-config": "BAK_DB_POSTGRES='true'\nBAK_DB_POSTGRES_EXEC_RESOURCE='deployment/postgres'\nBAK_NAMESPACE='postgres-test'"
+		},
+		"labels": {
+			"backup-ns.sh/delete-after": <redacted>,
+			"backup-ns.sh/pod": "gotest",
+			"backup-ns.sh/pvc": "data",
+			"backup-ns.sh/retain": "days",
+			"backup-ns.sh/retain-days": "1",
+			"backup-ns.sh/type": "adhoc"
+		},
+		"name": <redacted>,
+		"namespace": "postgres-test"
+	},
+	"spec": {
+		"source": {
+			"persistentVolumeClaimName": "data"
+		},
+		"volumeSnapshotClassName": "csi-hostpath-snapclass"
+	}
+}

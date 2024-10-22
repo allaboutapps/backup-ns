@@ -1,16 +1,14 @@
 package lib
 
 import (
-	"crypto/rand"
 	"encoding/json"
-	"fmt"
 	"log"
-	"math/big"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/allaboutapps/backup-ns/internal/util"
 )
 
 // Config holds all the configuration options
@@ -69,150 +67,123 @@ type FlockConfig struct {
 func LoadConfig() Config {
 	return Config{
 		// If true, no actual dump/backup is performed, just a dry run to check if everything is in place (still exec into the target container)
-		DryRun: getBoolEnv("BAK_DRY_RUN", false),
+		DryRun: util.GetEnvAsBool("BAK_DRY_RUN", false),
 
 		// The target namespace to backup
-		Namespace: getEnv("BAK_NAMESPACE", getCurrentNamespace()),
+		Namespace: util.GetEnv("BAK_NAMESPACE", getCurrentNamespaceWithFallback()),
 
 		// The name of the PVC to backup, the vs will also be labeled via the key "backup-ns.sh/pvc"
-		PVCName: getEnv("BAK_PVC_NAME", "data"),
+		PVCName: util.GetEnv("BAK_PVC_NAME", "data"),
 
 		// A random string to make the volume snapshot name unique (apart from the timestamp)
-		VSRand: getEnv("BAK_VS_RAND", GenerateRandomString(6)),
+		VSRand: util.GetEnv("BAK_VS_RAND", GenerateRandomStringOrPanic(6)),
 
 		LabelVS: LabelVSConfig{
 			// "backup-ns.sh/type" label value of volume snapshot (e.g. "adhoc" or custom backups, "cronjob" for recurring, etc.)
 			// This label is not used for any further selections and only for informational purposes.
-			Type: getEnv("BAK_LABEL_VS_TYPE", "adhoc"),
+			Type: util.GetEnv("BAK_LABEL_VS_TYPE", "adhoc"),
 
 			// "backup-ns.sh/pod" label value of volume snapshot (this is used to identify the backup job that created the snapshot)
-			Pod: getEnv("BAK_LABEL_VS_POD", ""),
+			Pod: util.GetEnv("BAK_LABEL_VS_POD", ""),
 
 			// "backup-ns.sh/retain" label value. Currently supported values:
 			// "daily_weekly_monthly": keep as long as these label keys (key "backup-ns.sh/daily|weekly|monthly") are available on the vs
 			// "days": keep the vs for as long as the label value within key "backup-ns.sh/delete-after" says (YYYY-MM-DD)
-			Retain: getEnv("BAK_LABEL_VS_RETAIN", "days"),
+			Retain: util.GetEnvEnum("BAK_LABEL_VS_RETAIN", "days", []string{"days", "daily_weekly_monthly"}),
 
 			// The number of days to retain the snapshot if BAK_LABEL_VS_RETAIN is set to "days"
-			RetainDays: getIntEnv("BAK_LABEL_VS_RETAIN_DAYS", 30),
+			RetainDays: util.GetEnvAsInt("BAK_LABEL_VS_RETAIN_DAYS", 30),
 		},
 
 		// The (go template) of the name of the volume snapshot (will be evaluated after having the flock lock, if enabled)
-		VSNameTemplate: getEnv("BAK_VS_NAME_TEMPLATE", "{{ .pvcName }}-{{ .timestamp }}-{{ .rand }}"),
+		VSNameTemplate: util.GetEnv("BAK_VS_NAME_TEMPLATE", "{{ .pvcName }}-{{ .timestamp }}-{{ .rand }}"),
 
 		// The name of the volume snapshot class to use, "" means default class
-		VSClassName: getEnv("BAK_VS_CLASS_NAME", ""), // the snapshot calls should have "Retain" deletion policy set!
+		VSClassName: util.GetEnv("BAK_VS_CLASS_NAME", ""), // the snapshot calls should have "Retain" deletion policy set!
 
 		// If true, the script will wait until the snapshot is actually ready (useable)
-		VSWaitUntilReady: getBoolEnv("BAK_VS_WAIT_UNTIL_READY", true),
+		VSWaitUntilReady: util.GetEnvAsBool("BAK_VS_WAIT_UNTIL_READY", true),
 
 		// The timeout to wait for the snapshot to be ready (as go formatted duration spec)
-		VSWaitUntilReadyTimeout: getEnv("BAK_VS_WAIT_UNTIL_READY_TIMEOUT", "15m"),
+		VSWaitUntilReadyTimeout: util.GetEnv("BAK_VS_WAIT_UNTIL_READY_TIMEOUT", "15m"),
 
 		// The max allowed used space of the disk mounted at the dump dir before the backup fails
-		ThresholdSpaceUsedPercent: getIntEnv("BAK_THRESHOLD_SPACE_USED_PERCENTAGE", 90),
+		ThresholdSpaceUsedPercent: util.GetEnvAsInt("BAK_THRESHOLD_SPACE_USED_PERCENTAGE", 90),
 
 		// If true, no application-aware backup is performed (no db - useful for testing the snapshot creation only)
-		DBSkip: getBoolEnv("BAK_DB_SKIP", false),
+		DBSkip: util.GetEnvAsBool("BAK_DB_SKIP", false),
 
 		Postgres: PostgresConfig{
 			// If true, a postgresql dump is created before the snapshot
-			Enabled: getBoolEnv("BAK_DB_POSTGRES", false),
+			Enabled: util.GetEnvAsBool("BAK_DB_POSTGRES", false),
 
 			// The k8s resource to exec into to create the dump
-			ExecResource: getEnv("BAK_DB_POSTGRES_EXEC_RESOURCE", "deployment/app-base"),
+			ExecResource: util.GetEnv("BAK_DB_POSTGRES_EXEC_RESOURCE", "deployment/app-base"),
 
 			// The container inside the above resource to exec into to create the dump
-			ExecContainer: getEnv("BAK_DB_POSTGRES_EXEC_CONTAINER", "postgres"),
+			ExecContainer: util.GetEnv("BAK_DB_POSTGRES_EXEC_CONTAINER", "postgres"),
 
 			// The file inside the container to store the dump
-			DumpFile: getEnv("BAK_DB_POSTGRES_DUMP_FILE", "/var/lib/postgresql/data/dump.sql.gz"),
+			DumpFile: util.GetEnv("BAK_DB_POSTGRES_DUMP_FILE", "/var/lib/postgresql/data/dump.sql.gz"),
 
 			// The postgresql user to use for connecting/creating the dump (psql and pg_dump must be allowed)
 			// Read from inside the *container* by default (${POSTGRES_USER})
-			User: getEnv("BAK_DB_POSTGRES_USER", "${POSTGRES_USER}"),
+			User: util.GetEnv("BAK_DB_POSTGRES_USER", "${POSTGRES_USER}"),
 
 			// The postgresql password to use for connecting/creating the dump
 			// Read from inside the *container* by default (${POSTGRES_PASSWORD})
-			Password: getEnv("BAK_DB_POSTGRES_PASSWORD", "${POSTGRES_PASSWORD}"),
+			Password: util.GetEnv("BAK_DB_POSTGRES_PASSWORD", "${POSTGRES_PASSWORD}"),
 
 			// The postgresql database to use for connecting/creating the dump
 			// Read from inside the *container* by default (${POSTGRES_DB})
-			DB: getEnv("BAK_DB_POSTGRES_DB", "${POSTGRES_DB}"),
+			DB: util.GetEnv("BAK_DB_POSTGRES_DB", "${POSTGRES_DB}"),
 		},
 
 		MySQL: MySQLConfig{
 			// If true, a mysql dump is created before the snapshot
-			Enabled: getBoolEnv("BAK_DB_MYSQL", false),
+			Enabled: util.GetEnvAsBool("BAK_DB_MYSQL", false),
 
 			// The k8s resource to exec into to create the dump
-			ExecResource: getEnv("BAK_DB_MYSQL_EXEC_RESOURCE", "deployment/app-base"),
+			ExecResource: util.GetEnv("BAK_DB_MYSQL_EXEC_RESOURCE", "deployment/app-base"),
 
 			// The container inside the above resource to exec into to create the dump
-			ExecContainer: getEnv("BAK_DB_MYSQL_EXEC_CONTAINER", "mysql"),
+			ExecContainer: util.GetEnv("BAK_DB_MYSQL_EXEC_CONTAINER", "mysql"),
 
 			// The file inside the container to store the dump
-			DumpFile: getEnv("BAK_DB_MYSQL_DUMP_FILE", "/var/lib/mysql/dump.sql.gz"),
+			DumpFile: util.GetEnv("BAK_DB_MYSQL_DUMP_FILE", "/var/lib/mysql/dump.sql.gz"),
 
 			// The mysql host to use for connecting/creating the dump
-			Host: getEnv("BAK_DB_MYSQL_HOST", "127.0.0.1"),
+			Host: util.GetEnv("BAK_DB_MYSQL_HOST", "127.0.0.1"),
 
 			// The mysql user to use for connecting/creating the dump
-			User: getEnv("BAK_DB_MYSQL_USER", "root"),
+			User: util.GetEnv("BAK_DB_MYSQL_USER", "root"),
 
 			// The mysql password to use for connecting/creating the dump
 			// Read from inside the *container* by default (${MYSQL_ROOT_PASSWORD})
-			Password: getEnv("BAK_DB_MYSQL_PASSWORD", "${MYSQL_ROOT_PASSWORD}"),
+			Password: util.GetEnv("BAK_DB_MYSQL_PASSWORD", "${MYSQL_ROOT_PASSWORD}"),
 
 			// The mysql database to use for connecting/creating the dump
 			// Read from inside the *container* by default (${MYSQL_DATABASE})
-			DB: getEnv("BAK_DB_MYSQL_DB", "${MYSQL_DATABASE}"),
+			DB: util.GetEnv("BAK_DB_MYSQL_DB", "${MYSQL_DATABASE}"),
 		},
 
 		Flock: FlockConfig{
 			// If true, flock is used to coordinate concurrent backup script execution, e.g. controlling per k8s node backup script concurrency
-			Enabled: getBoolEnv("BAK_FLOCK", false),
+			Enabled: util.GetEnvAsBool("BAK_FLOCK", false),
 
 			// The number of concurrent backup scripts allowed to run
-			Count: getIntEnv("BAK_FLOCK_COUNT", getDefaultFlockCount()),
+			Count: util.GetEnvAsInt("BAK_FLOCK_COUNT", getDefaultFlockCount()),
 
 			// The dir in which we will create file locks to coordinate multiple running backup-ns.sh jobs
-			Dir: getEnv("BAK_FLOCK_DIR", "/mnt/host-backup-locks"),
+			Dir: util.GetEnv("BAK_FLOCK_DIR", "/mnt/host-backup-locks"),
 
 			// The timeout in seconds to wait for the flock lock until we exit 1
-			TimeoutSec: getIntEnv("BAK_FLOCK_TIMEOUT_SEC", 3600),
+			TimeoutSec: util.GetEnvAsInt("BAK_FLOCK_TIMEOUT_SEC", 3600),
 		},
 	}
 }
 
-func getEnv(key, fallback string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return fallback
-}
-
-func getBoolEnv(key string, fallback bool) bool {
-	strValue := getEnv(key, fmt.Sprintf("%t", fallback))
-	boolValue, err := strconv.ParseBool(strValue)
-	if err != nil {
-		log.Printf("Error parsing bool env var %s: %v", key, err)
-		return fallback
-	}
-	return boolValue
-}
-
-func getIntEnv(key string, fallback int) int {
-	strValue := getEnv(key, fmt.Sprintf("%d", fallback))
-	intValue, err := strconv.Atoi(strValue)
-	if err != nil {
-		log.Printf("Error parsing int env var %s: %v", key, err)
-		return fallback
-	}
-	return intValue
-}
-
-func getCurrentNamespace() string {
+func getCurrentNamespaceWithFallback() string {
 	cmd := exec.Command("kubectl", "config", "view", "--minify", "--output", "jsonpath={..namespace}")
 	output, err := cmd.Output()
 	if err != nil {
@@ -222,17 +193,14 @@ func getCurrentNamespace() string {
 	return string(output)
 }
 
-func GenerateRandomString(n int) string {
-	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
-	b := make([]rune, n)
-	for i := range b {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letterRunes))))
-		if err != nil {
-			log.Fatalf("GenerateRandomString: Failed to generate secure random number: %v", err)
-		}
-		b[i] = letterRunes[num.Int64()]
+func GenerateRandomStringOrPanic(n int) string {
+
+	randString, err := util.GenerateRandomString(n, []util.CharRange{util.CharRangeAlphaLowerCase}, "")
+	if err != nil {
+		log.Panicf("GenerateRandomString: Failed to generate secure random number: %v", err)
 	}
-	return string(b)
+
+	return randString
 }
 
 // GetBAKEnvVars returns all environment variables starting with "BAK_", excluding secrets

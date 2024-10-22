@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/allaboutapps/backup-ns/internal/lib"
+	"github.com/allaboutapps/backup-ns/internal/test"
 )
 
 func TestBackupPostgres(t *testing.T) {
-	vsName := fmt.Sprintf("test-backup-postgres-%s", lib.GenerateRandomString(6))
+	vsName := fmt.Sprintf("test-backup-postgres-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "postgres-test"
 
 	postgresConfig := lib.PostgresConfig{
@@ -42,9 +43,15 @@ func TestBackupPostgres(t *testing.T) {
 	lib.BackupPostgres(namespace, false, postgresConfig)
 
 	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)
-	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
+	vsAnnotations := lib.GenerateVSAnnotations(map[string]string{
+		"BAK_NAMESPACE":                 namespace,
+		"BAK_DB_POSTGRES":               "true",
+		"BAK_DB_POSTGRES_EXEC_RESOURCE": "deployment/postgres",
+	})
 
 	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)
+
+	test.Snapshoter.Redact("name", "backup-ns.sh/delete-after").SaveJSON(t, vsObject)
 
 	if err := lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, false, "25s"); err != nil {
 		t.Fatal("create vs failed: ", err)

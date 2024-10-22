@@ -10,7 +10,7 @@ import (
 )
 
 func TestBackupMySQL(t *testing.T) {
-	vsName := fmt.Sprintf("test-backup-mysql-%s", lib.GenerateRandomString(6))
+	vsName := fmt.Sprintf("test-backup-mysql-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "mysql-test"
 
 	mysqlConfig := lib.MySQLConfig{

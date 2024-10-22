@@ -10,7 +10,7 @@ import (
 )
 
 func TestVolumeCreateAndDelete(t *testing.T) {
-	vsName := fmt.Sprintf("test-backup-generic-%s", lib.GenerateRandomString(6))
+	vsName := fmt.Sprintf("test-backup-generic-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "generic-test"
 
 	labelVSConfig := lib.LabelVSConfig{
@@ -42,7 +42,7 @@ func TestVolumeCreateAndDelete(t *testing.T) {
 }
 
 func TestVolumeCreateFailsNameSpace(t *testing.T) {
-	vsName := fmt.Sprintf("test-backup-generic-%s", lib.GenerateRandomString(6))
+	vsName := fmt.Sprintf("test-backup-generic-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "non-existant-namespace" // !!!
 
 	labelVSConfig := lib.LabelVSConfig{

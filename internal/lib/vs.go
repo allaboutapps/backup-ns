@@ -2,11 +2,13 @@ package lib
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -80,14 +82,26 @@ func volumeSnapshotWithLabelValueExists(namespace, labelKey, labelValue string) 
 func GenerateVSAnnotations(bakEnvVars map[string]string) map[string]string {
 	var envConfigLines []string
 
-	for key, value := range bakEnvVars {
-		envConfigLines = append(envConfigLines, fmt.Sprintf("%s='%s'", key, value))
+	for _, key := range sortedKeys(bakEnvVars) {
+		envConfigLines = append(envConfigLines, fmt.Sprintf("%s='%s'", key, bakEnvVars[key]))
 	}
 
 	annotations := map[string]string{
 		"backup-ns.sh/env-config": strings.Join(envConfigLines, "\n"),
 	}
 	return annotations
+}
+
+// https://stackoverflow.com/questions/18342784/how-to-iterate-through-a-map-in-golang-in-order
+func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
+	keys := make([]K, len(m))
+	i := 0
+	for k := range m {
+		keys[i] = k
+		i++
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
 }
 
 func GenerateVSObject(namespace, vsClassName, pvcName, vsName string, labels, annotations map[string]string) map[string]interface{} {
