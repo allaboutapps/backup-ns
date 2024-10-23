@@ -8,11 +8,49 @@ import (
 	"html/template"
 	"log"
 	"os/exec"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
+
+type NamespacedK8sObject struct {
+	Namespace string
+	Name      string
+}
+
+// We expect all VS that we manage to have to "backup-ns.sh/type" label key.
+func GetManagedVolumeSnapshots() ([]NamespacedK8sObject, error) {
+	cmd := exec.Command("kubectl", "get", "volumesnapshot", "--all-namespaces", "-lbackup-ns.sh/type", "-o=jsonpath={range .items[*]}{.metadata.namespace} {.metadata.name}{\"\\n\"}{end}")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+	vsLines := strings.Split(strings.TrimSpace(out.String()), "\n")
+
+	vss := make([]NamespacedK8sObject, 0, len(vsLines))
+
+	for _, line := range vsLines {
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		vss = append(vss, NamespacedK8sObject{
+			Namespace: parts[0],
+			Name:      parts[1],
+		})
+	}
+
+	slices.SortFunc(vss, func(a, b NamespacedK8sObject) int {
+		return strings.Compare(strings.ToLower(a.Namespace+a.Name), strings.ToLower(b.Namespace+b.Name))
+	})
+
+	return vss, nil
+}
 
 func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) (string, error) {
 	templ := template.Must(template.New("vsNameTemplate").Parse(vsNameTemplate))
@@ -184,25 +222,6 @@ func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject
 	return nil
 }
 
-func getVolumeSnapshotContentName(namespace, volumeSnapshotName string) (string, error) {
-	cmd := exec.Command("kubectl", "get", "volumesnapshot", volumeSnapshotName, "-n", namespace, "-o", "jsonpath={.status.boundVolumeSnapshotContentName}")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("failed to get VolumeSnapshotContent name: %w, output: %s", err, output)
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
-func patchVolumeSnapshotContent(vscName string) error {
-	patchCmd := exec.Command("kubectl", "patch", "volumesnapshotcontent", vscName, "--type", "merge", "-p", `{"spec":{"deletionPolicy":"Delete"}}`)
-	output, err := patchCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to patch VolumeSnapshotContent: %w, output: %s", err, output)
-	}
-	log.Printf("Successfully patched VolumeSnapshotContent %s deletionPolicy to 'Delete'\n", vscName)
-	return nil
-}
-
 func deleteVolumeSnapshot(namespace, volumeSnapshotName string) error {
 	deleteCmd := exec.Command("kubectl", "delete", "volumesnapshot", volumeSnapshotName, "-n", namespace)
 	output, err := deleteCmd.CombinedOutput()
@@ -218,13 +237,13 @@ func deleteVolumeSnapshot(namespace, volumeSnapshotName string) error {
 // This function will set the deletionPolicy of the VolumeSnapshotContent to "Delete" before deleting the VolumeSnapshot, thus ensuring the underlying storage is also deleted.
 func PruneVolumeSnapshot(namespace, volumeSnapshotName string) error {
 	// Get the VolumeSnapshotContent name
-	vscName, err := getVolumeSnapshotContentName(namespace, volumeSnapshotName)
+	vscName, err := GetVolumeSnapshotContentName(namespace, volumeSnapshotName)
 	if err != nil {
 		return err
 	}
 
 	// Patch the VolumeSnapshotContent to set deletionPolicy to Delete
-	if err := patchVolumeSnapshotContent(vscName); err != nil {
+	if err := patchVolumeSnapshotContentDeletionPolicy(vscName); err != nil {
 		return err
 	}
 
