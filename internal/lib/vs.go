@@ -168,6 +168,51 @@ func GenerateVSObject(namespace, vsClassName, pvcName, vsName string, labels, an
 	return manifest
 }
 
+func GenerateVSObjectFromVSC(vscName string, vscObject map[string]interface{}) (map[string]interface{}, error) {
+	vsName, ok := vscObject["spec"].(map[string]interface{})["volumeSnapshotRef"].(map[string]interface{})["name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to get VolumeSnapshot name from VolumeSnapshotContent")
+	}
+
+	namespace, ok := vscObject["spec"].(map[string]interface{})["volumeSnapshotRef"].(map[string]interface{})["namespace"].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to get namespace from VolumeSnapshotContent")
+	}
+
+	labels, ok := vscObject["metadata"].(map[string]interface{})["labels"].(map[string]interface{})
+	if !ok {
+		labels = make(map[string]interface{})
+	}
+
+	// pvcName, ok := labels["backup-ns.sh/pvc"].(string)
+	// if !ok {
+	// 	return nil, fmt.Errorf("failed to get PVC name from VolumeSnapshotContent labels")
+	// }
+
+	vsClassName, ok := vscObject["spec"].(map[string]interface{})["volumeSnapshotClassName"].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to get vsClassName from VolumeSnapshotContent")
+	}
+
+	manifest := map[string]interface{}{
+		"apiVersion": "snapshot.storage.k8s.io/v1",
+		"kind":       "VolumeSnapshot",
+		"metadata": map[string]interface{}{
+			"name":      vsName,
+			"namespace": namespace,
+			"labels":    labels,
+		},
+		"spec": map[string]interface{}{
+			"source": map[string]interface{}{
+				"volumeSnapshotContentName": vscName,
+			},
+			"volumeSnapshotClassName": vsClassName,
+		},
+	}
+
+	return manifest, nil
+}
+
 func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject map[string]interface{}, wait bool, waitTimeout string) error {
 	stringifiedVSObject, err := json.MarshalIndent(vsObject, "", "  ")
 	if err != nil {

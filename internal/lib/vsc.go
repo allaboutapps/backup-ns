@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os/exec"
@@ -138,4 +139,19 @@ func getLabelAdd(vsLabels map[string]string) []string {
 		add = append(add, fmt.Sprintf("%s=%s", k, v))
 	}
 	return add
+}
+func GetVolumeSnapshotContentObject(vscName string) (map[string]interface{}, error) {
+	cmd := exec.Command("kubectl", "get", "volumesnapshotcontent", vscName, "-o", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VolumeSnapshotContent object: %w", err)
+	}
+
+	var vscObject map[string]interface{}
+	err = json.Unmarshal(output, &vscObject)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal VolumeSnapshotContent object: %w", err)
+	}
+
+	return vscObject, nil
 }
