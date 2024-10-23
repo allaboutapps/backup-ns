@@ -157,14 +157,17 @@ func GetVolumeSnapshotContentObject(vscName string) (map[string]interface{}, err
 	return vscObject, nil
 }
 
-func CreatePreProvisionedVSC(vscObject map[string]interface{}) (map[string]interface{}, error) {
+func CreatePreProvisionedVSC(vscObject map[string]interface{}, postfix string) (map[string]interface{}, error) {
 	// Create a new VSC object for the pre-provisioned VSC
 	preProvisionedVSC := make(map[string]interface{})
 
 	// Copy and modify the metadata
 	metadata := make(map[string]interface{})
 	originalMetadata := vscObject["metadata"].(map[string]interface{})
-	metadata["name"] = originalMetadata["name"].(string) + "-restored"
+
+	newVSCName := originalMetadata["name"].(string) + "-" + postfix
+
+	metadata["name"] = newVSCName
 	if labels, ok := originalMetadata["labels"]; ok {
 		metadata["labels"] = labels
 	}
@@ -204,8 +207,11 @@ func CreatePreProvisionedVSC(vscObject map[string]interface{}) (map[string]inter
 
 	// Set volumeSnapshotRef using the original values
 	originalVolumeSnapshotRef := originalSpec["volumeSnapshotRef"].(map[string]interface{})
+
+	newVSName := originalVolumeSnapshotRef["name"].(string) + "-" + postfix
+
 	spec["volumeSnapshotRef"] = map[string]interface{}{
-		"name":      originalVolumeSnapshotRef["name"].(string) + "-restored",
+		"name":      newVSName,
 		"namespace": originalVolumeSnapshotRef["namespace"],
 	}
 
@@ -220,7 +226,7 @@ func CreatePreProvisionedVSC(vscObject map[string]interface{}) (map[string]inter
 		return nil, fmt.Errorf("failed to marshalIndent pre-provisioned VSC: %w", err)
 	}
 
-	log.Printf("%s\n", stringifiedVSC)
+	log.Printf("Creating pre-provisioned VSC '%s' targeting VS '%s' in namespace=%s...\n%s", newVSCName, newVSName, originalVolumeSnapshotRef["namespace"], string(stringifiedVSC))
 
 	// Create the pre-provisioned VSC
 	vscJSON, err := json.Marshal(preProvisionedVSC)

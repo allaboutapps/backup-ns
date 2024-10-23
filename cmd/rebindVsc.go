@@ -29,6 +29,8 @@ func init() {
 }
 
 func rebindVsc(vscName string) error {
+	config := lib.LoadConfig()
+
 	// Get the VolumeSnapshotContent object
 	vscObject, err := lib.GetVolumeSnapshotContentObject(vscName)
 	if err != nil {
@@ -36,7 +38,7 @@ func rebindVsc(vscName string) error {
 	}
 
 	// Create a restored VSC from the existing VSC
-	restoredVSC, err := lib.CreatePreProvisionedVSC(vscObject)
+	restoredVSC, err := lib.CreatePreProvisionedVSC(vscObject, config.VSRand)
 	if err != nil {
 		return fmt.Errorf("failed to create restored VolumeSnapshotContent: %w", err)
 	}
@@ -64,7 +66,7 @@ func rebindVsc(vscName string) error {
 	}
 
 	// Create the VolumeSnapshot
-	err = lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, true, "5m")
+	err = lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, config.VSWaitUntilReady, config.VSWaitUntilReadyTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to create VolumeSnapshot: %w", err)
 	}
