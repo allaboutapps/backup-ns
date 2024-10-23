@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -155,3 +156,105 @@ func GetVolumeSnapshotContentObject(vscName string) (map[string]interface{}, err
 
 	return vscObject, nil
 }
+
+func CreatePreProvisionedVSC(vscObject map[string]interface{}) (map[string]interface{}, error) {
+	// Create a new VSC object for the pre-provisioned VSC
+	preProvisionedVSC := make(map[string]interface{})
+
+	// Copy and modify the metadata
+	metadata := make(map[string]interface{})
+	originalMetadata := vscObject["metadata"].(map[string]interface{})
+	metadata["name"] = originalMetadata["name"].(string) + "-restored"
+	if labels, ok := originalMetadata["labels"]; ok {
+		metadata["labels"] = labels
+	}
+	preProvisionedVSC["metadata"] = metadata
+
+	// Copy and modify the spec
+	spec := make(map[string]interface{})
+	originalSpec := vscObject["spec"].(map[string]interface{})
+
+	// Set deletionPolicy to Retain
+	spec["deletionPolicy"] = "Retain"
+
+	// Copy volumeSnapshotClassName if it exists
+	if vsClassName, ok := originalSpec["volumeSnapshotClassName"]; ok {
+		spec["volumeSnapshotClassName"] = vsClassName
+	}
+
+	// Set the source with the correct snapshotHandle
+	source := make(map[string]interface{})
+	if status, ok := vscObject["status"].(map[string]interface{}); ok {
+		if snapshotHandle, ok := status["snapshotHandle"]; ok {
+			source["snapshotHandle"] = snapshotHandle
+		} else {
+			return nil, fmt.Errorf("status.snapshotHandle not found in the original VSC")
+		}
+	} else {
+		return nil, fmt.Errorf("status field not found in the original VSC")
+	}
+	spec["source"] = source
+
+	// Set the required driver field
+	if driver, ok := originalSpec["driver"]; ok {
+		spec["driver"] = driver
+	} else {
+		return nil, fmt.Errorf("spec.driver not found in the original VSC")
+	}
+
+	// Set volumeSnapshotRef using the original values
+	originalVolumeSnapshotRef := originalSpec["volumeSnapshotRef"].(map[string]interface{})
+	spec["volumeSnapshotRef"] = map[string]interface{}{
+		"name":      originalVolumeSnapshotRef["name"].(string) + "-restored",
+		"namespace": originalVolumeSnapshotRef["namespace"],
+	}
+
+	preProvisionedVSC["spec"] = spec
+
+	// Set the correct apiVersion and kind
+	preProvisionedVSC["apiVersion"] = "snapshot.storage.k8s.io/v1"
+	preProvisionedVSC["kind"] = "VolumeSnapshotContent"
+
+	stringifiedVSC, err := json.MarshalIndent(preProvisionedVSC, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshalIndent pre-provisioned VSC: %w", err)
+	}
+
+	log.Printf("%s\n", stringifiedVSC)
+
+	// Create the pre-provisioned VSC
+	vscJSON, err := json.Marshal(preProvisionedVSC)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal pre-provisioned VSC: %w", err)
+	}
+
+	cmd := exec.Command("kubectl", "create", "-f", "-")
+	cmd.Stdin = bytes.NewReader(vscJSON)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pre-provisioned VSC: %w, output: %s", err, output)
+	}
+
+	// Fetch the created pre-provisioned VSC
+	createdVSC, err := GetVolumeSnapshotContentObject(metadata["name"].(string))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get created pre-provisioned VSC: %w", err)
+	}
+
+	return createdVSC, nil
+}
+
+// func deepCopy(src, dst map[string]interface{}) {
+// 	for k, v := range src {
+// 		switch v := v.(type) {
+// 		case map[string]interface{}:
+// 			dst[k] = make(map[string]interface{})
+// 			deepCopy(v, dst[k].(map[string]interface{}))
+// 		case []interface{}:
+// 			dst[k] = make([]interface{}, len(v))
+// 			copy(dst[k].([]interface{}), v)
+// 		default:
+// 			dst[k] = v
+// 		}
+// 	}
+// }

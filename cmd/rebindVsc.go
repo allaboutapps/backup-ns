@@ -35,8 +35,14 @@ func rebindVsc(vscName string) error {
 		return fmt.Errorf("failed to get VolumeSnapshotContent object: %w", err)
 	}
 
-	// Generate the VolumeSnapshot object from the VolumeSnapshotContent
-	vsObject, err := lib.GenerateVSObjectFromVSC(vscName, vscObject)
+	// Create a restored VSC from the existing VSC
+	restoredVSC, err := lib.CreatePreProvisionedVSC(vscObject)
+	if err != nil {
+		return fmt.Errorf("failed to create restored VolumeSnapshotContent: %w", err)
+	}
+
+	// Generate the VolumeSnapshot object from the restored VolumeSnapshotContent
+	vsObject, err := lib.GenerateVSObjectFromVSC(restoredVSC["metadata"].(map[string]interface{})["name"].(string), restoredVSC)
 	if err != nil {
 		return fmt.Errorf("failed to generate VolumeSnapshot object: %w", err)
 	}
