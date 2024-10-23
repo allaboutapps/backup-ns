@@ -3,7 +3,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"os"
+	"log"
 	"os/exec"
 	"strings"
 
@@ -17,16 +17,14 @@ var syncMetadataToVscCmd = &cobra.Command{
 	// Long:  `...`, // accidental namespace/vs deletion -> restore namespace...
 	Run: func(_ *cobra.Command, _ []string) {
 		if err := checkHostRequirements(); err != nil {
-			fmt.Println("Error:", err)
-			os.Exit(1)
+			log.Fatalf("Error host requirements: %v\n", err)
 		}
 
 		fmt.Println("starting sync vs metadata to vsc matching label 'backup-ns.sh/type'")
 
 		readySnapshots, err := getReadySnapshots()
 		if err != nil {
-			fmt.Println("Error getting ready snapshots:", err)
-			os.Exit(1)
+			log.Fatalf("Error getting ready snapshots: %v\n", err)
 		}
 
 		fails := 0
@@ -46,8 +44,7 @@ var syncMetadataToVscCmd = &cobra.Command{
 		}
 
 		if fails > 0 {
-			fmt.Printf("syncing metadata to vsc failed with %d errors.\n", fails)
-			os.Exit(1)
+			log.Fatalf("syncing metadata to vsc failed with %d errors.\n", fails)
 		}
 
 		fmt.Println("syncing metadata to vsc done with", fails, "errors.")
@@ -74,9 +71,104 @@ func getReadySnapshots() ([]string, error) {
 }
 
 func syncLabelsToVsc(namespace, name string) error {
-	// Implement the vs_sync_labels_to_vsc logic here
-	// This is a placeholder for the actual implementation
+	cmd := exec.Command("kubectl", "get", "volumesnapshot", name, "-n", namespace, "-o", "jsonpath={.status.boundVolumeSnapshotContentName}")
+	vscNameBytes, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get VolumeSnapshotContent name: %w", err)
+	}
+	vscName := strings.TrimSpace(string(vscNameBytes))
+
+	if vscName == "" {
+		return fmt.Errorf("volumeSnapshot %s in namespace %s not found or does not have a boundVolumeSnapshotContentName", name, namespace)
+	}
+
+	cmd = exec.Command("kubectl", "get", "volumesnapshot", name, "-n", namespace, "-o", "jsonpath={.metadata.labels}")
+	vsLabelsBytes, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get VolumeSnapshot labels: %w", err)
+	}
+	vsLabels := strings.TrimSpace(string(vsLabelsBytes))
+
+	cmd = exec.Command("kubectl", "get", "volumesnapshotcontent", vscName, "-o", "jsonpath={.metadata.labels}")
+	vscLabelsBytes, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get VolumeSnapshotContent labels: %w", err)
+	}
+	vscLabels := strings.TrimSpace(string(vscLabelsBytes))
+
+	vsLabelsMap := parseLabels(vsLabels)
+	vscLabelsMap := parseLabels(vscLabels)
+
+	labelDiff := getLabelDiff(vsLabelsMap, vscLabelsMap)
+
+	log.Printf("namespace=%s vs=%s vsc=%s\nvsLabels=%v\nvscLabels=%v\nlabelDiff=%v\n", namespace, name, vscName, vsLabels, vscLabels, labelDiff)
+
+	if len(labelDiff) == 0 {
+		fmt.Printf("noop VolumeSnapshotContent %s of VolumeSnapshot %s already in sync.\n", vscName, name)
+		return nil
+	}
+
+	labelDel := getLabelDel(vscLabelsMap)
+	labelAdd := getLabelAdd(vsLabelsMap)
+
+	if len(labelDel) > 0 {
+		args := append([]string{"label", "volumesnapshotcontent", vscName}, labelDel...)
+		cmd = exec.Command("kubectl", args...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to delete labels from VolumeSnapshotContent %s of VolumeSnapshot %s: %w", vscName, name, err)
+		}
+	}
+
+	args := append([]string{"label", "volumesnapshotcontent", vscName}, labelAdd...)
+	cmd = exec.Command("kubectl", args...)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to apply labels to VolumeSnapshotContent %s of VolumeSnapshot %s: %w", vscName, name, err)
+	}
+
 	return nil
+}
+
+func parseLabels(labels string) map[string]string {
+	labelMap := make(map[string]string)
+	if labels == "" {
+		return labelMap
+	}
+	labels = strings.Trim(labels, "{}")
+	labels = strings.ReplaceAll(labels, "\"", "")
+	pairs := strings.Split(labels, ",")
+	for _, pair := range pairs {
+		kv := strings.SplitN(pair, ":", 2)
+		if len(kv) == 2 {
+			labelMap[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return labelMap
+}
+
+func getLabelDiff(vsLabels, vscLabels map[string]string) map[string]string {
+	diff := make(map[string]string)
+	for k, v := range vsLabels {
+		if vscLabels[k] != v {
+			diff[k] = v
+		}
+	}
+	return diff
+}
+
+func getLabelDel(vscLabels map[string]string) []string {
+	var del []string
+	for k := range vscLabels {
+		del = append(del, fmt.Sprintf("%s-", k))
+	}
+	return del
+}
+
+func getLabelAdd(vsLabels map[string]string) []string {
+	var add []string
+	for k, v := range vsLabels {
+		add = append(add, fmt.Sprintf("%s=%s", k, v))
+	}
+	return add
 }
 
 func init() {
