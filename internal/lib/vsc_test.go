@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSyncVSLabelsToVsc(t *testing.T) {
+func createTestVS(t *testing.T) (string /* namespace*/, string /* vsName */) {
 	vsName := fmt.Sprintf("test-backup-generic-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "generic-test"
 
@@ -26,7 +26,13 @@ func TestSyncVSLabelsToVsc(t *testing.T) {
 
 	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)
 
-	require.NoError(t, lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, false, "1m"))
+	require.NoError(t, lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, true, "25s"))
+
+	return namespace, vsName
+}
+
+func TestSyncVSLabelsToVsc(t *testing.T) {
+	namespace, vsName := createTestVS(t)
 
 	// add an additional label that should not be synced
 	lblCmd := exec.Command("kubectl", "-n", namespace, "label", "volumesnapshot", vsName, "extralabel=test")
@@ -51,6 +57,58 @@ func TestSyncVSLabelsToVsc(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, postSyncLabelMap)
 
+	test.Snapshoter.Redact("backup-ns.sh/delete-after").SaveJSON(t, postSyncLabelMap)
+}
+
+func TestRebindVSC(t *testing.T) {
+
+	namespace, vsName := createTestVS(t)
+
+	// sync labels
+	require.NoError(t, lib.SyncVSLabelsToVsc(namespace, vsName))
+
+	// grab the created VSC name
+	vscName, err := lib.GetVolumeSnapshotContentName(namespace, vsName)
+	require.NoError(t, err)
+
+	// now delete the vs without affecting the VSC (like what would happen if the ns was deleted)
+	cmd := exec.Command("kubectl", "-n", namespace, "delete", "volumesnapshot", vsName)
+	require.NoError(t, cmd.Run())
+
+	// Get the VolumeSnapshotContent object
+	vscObject, err := lib.GetVolumeSnapshotContentObject(vscName)
+	require.NoError(t, err)
+
+	// Create a restored VSC from the existing VSC
+	restoredVSC, err := lib.CreatePreProvisionedVSC(vscObject, lib.GenerateRandomStringOrPanic(6))
+	require.NoError(t, err)
+
+	newVSCName, ok := restoredVSC["metadata"].(map[string]interface{})["name"].(string)
+	require.True(t, ok, "invalid name in generated VolumeSnapshotContent object")
+
+	// Generate the VolumeSnapshot object from the restored VolumeSnapshotContent
+	vsObject, err := lib.GenerateVSObjectFromVSC(newVSCName, restoredVSC)
+	require.NoError(t, err)
+
+	// Extract necessary information from the generated VS object
+	metadata, ok := vsObject["metadata"].(map[string]interface{})
+	require.True(t, ok, "invalid metadata in generated VolumeSnapshot object")
+
+	newNamespace, ok := metadata["namespace"].(string)
+	require.True(t, ok, "invalid namespace in generated VolumeSnapshot object")
+
+	newVsName, ok := metadata["name"].(string)
+	require.True(t, ok, "invalid name in generated VolumeSnapshot object")
+
+	// Create the VolumeSnapshot
+	err = lib.CreateVolumeSnapshot(newNamespace, false, newVsName, vsObject, true, "25s")
+	require.NoError(t, err)
+
+	postSyncLabelMap, err := lib.GetBackupNsLabelMap(namespace, "volumesnapshotcontent", newVSCName)
+	require.NoError(t, err)
+	require.NotEmpty(t, postSyncLabelMap)
+
+	// ensure labels were successfully synced
 	test.Snapshoter.Redact("backup-ns.sh/delete-after").SaveJSON(t, postSyncLabelMap)
 }
 

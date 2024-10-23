@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"math"
 	"os/exec"
 	"slices"
 	"sort"
@@ -245,15 +246,43 @@ func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject
 		// give kubectl some time to actually have a status field to wait for
 		// https://github.com/kubernetes/kubectl/issues/1204
 		// https://github.com/kubernetes/kubernetes/pull/109525
-		time.Sleep(5 * time.Second)
+		// time.Sleep(5 * time.Second)
 
-		// #nosec G204
-		cmd = exec.Command("kubectl", "wait", "--for=jsonpath={.status.readyToUse}=true", "--timeout", waitTimeout, "volumesnapshot/"+vsName, "-n", namespace)
-		// log.Println(cmd.String())
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("VolumeSnapshot '%s' did not become ready: %w. Output:\n%s", vsName, err, string(output))
+		maxRetries := 3
+		baseDelay := time.Second
+		maxDelay := 5 * time.Second
+
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			// #nosec G204
+			cmd = exec.Command("kubectl", "wait", "--for=jsonpath={.status.readyToUse}=true", "--timeout", waitTimeout, "volumesnapshot/"+vsName, "-n", namespace)
+			output, err := cmd.CombinedOutput()
+			if err == nil {
+				// Success, break the retry loop
+				break
+			}
+
+			if attempt == maxRetries-1 {
+				// Last attempt failed
+				return fmt.Errorf("VolumeSnapshot '%s' did not become ready after %d attempts: %w. Output:\n%s", vsName, maxRetries, err, string(output))
+			}
+
+			// Calculate delay with exponential backoff
+			delay := time.Duration(math.Pow(2, float64(attempt))) * baseDelay
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+
+			log.Printf("Attempt %d failed. Retrying in %v...", attempt+1, delay)
+			time.Sleep(delay)
 		}
+
+		// // #nosec G204
+		// cmd = exec.Command("kubectl", "wait", "--for=jsonpath={.status.readyToUse}=true", "--timeout", waitTimeout, "volumesnapshot/"+vsName, "-n", namespace)
+		// // log.Println(cmd.String())
+		// output, err := cmd.CombinedOutput()
+		// if err != nil {
+		// 	return fmt.Errorf("VolumeSnapshot '%s' did not become ready: %w. Output:\n%s", vsName, err, string(output))
+		// }
 	}
 
 	// #nosec G204
