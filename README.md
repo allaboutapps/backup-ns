@@ -2,7 +2,9 @@
 
 - [backup-ns](#backup-ns)
   - [Introduction](#introduction)
-  - [Process](#process)
+  - [Processes](#processes)
+    - [Application-aware backup creation](#application-aware-backup-creation)
+  - [Usage](#usage)
   - [Labels](#labels)
   - [Development setup](#development-setup)
   - [Maintainers](#maintainers)
@@ -12,8 +14,8 @@
 
 ## Introduction
 
-> Please note that this project is currently in a **alpha** state, only used internally at allaboutapps and thus is **not yet ready for production use**!
-> Expect **breaking changes**, especially when it comes to the configuration and label handling.
+> This project is currently in a **alpha** state and only used internally at allaboutapps.  
+> Thus is **not ready for production use**! Expect **breaking changes**.
 
 This project extends Kubernetes CSI-based snapshots with application-aware (also called application-consistent) creation mechanisms. It is designed to be used in a multi-tenant cluster environments where namespaces are used to separate different customer applications. 
 
@@ -25,9 +27,61 @@ Current focus:
 * Mark and sweep like handling, giving you time between marking and deleting.
 * Low-dependency, only `kubectl` must be in the `PATH`.
 
-## Process
+## Processes
 
-> TODO add mermaid diagram
+This section describes the various processes of the backup-ns tool.
+
+### Application-aware backup creation
+
+This diagram shows the process of a backup job for a PostgreSQL database. The same is possibel with MySQL or by entirely skipping the database.
+
+```mermaid
+sequenceDiagram
+    participant BACKUP_NS as k8s Job backup-ns
+    participant K8S_NODE as k8s Node
+    participant K8S_API as k8s API
+    participant K8S_POD as k8s Pod
+
+    Note over BACKUP_NS: Load ENV
+    Note over BACKUP_NS: Shuffle {1,2}.lock based on Node CPU count
+    
+    BACKUP_NS->>K8S_NODE: Acquire flock /mnt/host-backup-locks/2.lock
+
+    Note over BACKUP_NS,K8S_NODE: Block until another backup-ns job is done
+
+    K8S_NODE-->>BACKUP_NS: Flock lock acquired
+    
+    BACKUP_NS->>K8S_API: Check pvc/data exists
+    K8S_API-->>BACKUP_NS: PVC OK
+
+    BACKUP_NS->>K8S_API: Check deployment/database is up
+    K8S_API-->>BACKUP_NS: Pod OK
+
+    Note over BACKUP_NS,K8S_POD: backup-ns now execs into the pod. All commands are run in the same container as your database.
+
+    BACKUP_NS->>K8S_POD: Check postgres prerequisites
+    K8S_POD-->>BACKUP_NS: gzip, pg_dump available. DB accessible.
+    
+    BACKUP_NS->>K8S_POD: Check free disk space of mounted dir inside pod
+    K8S_POD-->>BACKUP_NS: <90% disk space used, OK
+    
+    BACKUP_NS->>K8S_POD: Execute pg_dump, check dump file size
+    K8S_POD-->>BACKUP_NS: Dump OK
+    
+    Note over BACKUP_NS,K8S_API: With the dump ready, we can now create a VolumeSnapshot via the CSI driver.
+
+    BACKUP_NS->>K8S_API: Create VolumeSnapshot. Label for adhoc, daily, weekly, monthly retention.
+    K8S_API-->>BACKUP_NS: VS created
+    Note over BACKUP_NS: Wait for VS ready
+    
+    BACKUP_NS->>K8S_NODE: Release flock lock
+  
+    Note over BACKUP_NS: Backup complete
+```
+
+## Usage
+
+> TODO Helm chart within `deploy/backup-ns` -> gh-pages
 
 ## Labels
 
