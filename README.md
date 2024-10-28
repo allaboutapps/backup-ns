@@ -1,7 +1,5 @@
 # backup-ns
 
-k8s application-aware snapshots.
-
 - [backup-ns](#backup-ns)
   - [Introduction](#introduction)
   - [Process](#process)
@@ -14,15 +12,15 @@ k8s application-aware snapshots.
 
 ## Introduction
 
-> Please note that this project is currently in a **alpha** state, only used internally at allaboutapps and thus is not yet ready for production use!
-> Expect breaking changes, especially when it comes to the configuration and label handling.
+> Please note that this project is currently in a **alpha** state, only used internally at allaboutapps and thus is **not yet ready for production use**!
+> Expect **breaking changes**, especially when it comes to the configuration and label handling.
 
-This project extends Kubernetes CSI-based snapshots with an application-aware (also called application-consistent) creation mechanisms. It is designed to be used in a multi-tenant cluster environments where namespaces are used to separate different customer applications. 
+This project extends Kubernetes CSI-based snapshots with application-aware (also called application-consistent) creation mechanisms. It is designed to be used in a multi-tenant cluster environments where namespaces are used to separate different customer applications. 
 
 Current focus:
 * Simple cli util for backup and restore without the need for operators or custom resource definitions (CRDs).
-* Using the right `mysql` and `pg_dump` version is crucial, by executing the backup in the same pod as the database container, this is always guranteed.
-* Stick to the primitives. Just use cronjobs for daily backup, handle retention with labels. 
+* Using the proper compatible `mysqldump` and `pg_dump` is crucial when doing dumps! By executing these dumps in the same pod as the database container, compatibility is guaranteed.
+* Stick to the primitives. Just use k8s `CronJobs` for daily backup and handle retention with labels. 
 * Control backup job concurrency on the node-level via flock.
 * Mark and sweep like handling, giving you time between marking and deleting.
 * Low-dependency, only `kubectl` must be in the `PATH`.
