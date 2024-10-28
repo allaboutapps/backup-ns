@@ -56,7 +56,7 @@ func runCreate(_ *cobra.Command, _ []string) {
 
 		defer func() {
 			if err := unlock(); err != nil {
-				log.Printf("deferred unlock err %v", err)
+				log.Printf("Ignoring error while unlocking flock lock: %v", err)
 			}
 		}()
 	}
