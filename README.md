@@ -4,8 +4,10 @@
   - [Introduction](#introduction)
   - [Processes](#processes)
     - [Application-aware backup creation](#application-aware-backup-creation)
+    - [Label retention process](#label-retention-process)
+    - [Mark and delete process](#mark-and-delete-process)
   - [Usage](#usage)
-  - [Labels](#labels)
+    - [Labels](#labels)
   - [Development setup](#development-setup)
   - [Maintainers](#maintainers)
   - [License](#license)
@@ -37,7 +39,7 @@ This diagram shows the process of a backup job for a PostgreSQL database. The sa
 
 ```mermaid
 sequenceDiagram
-    participant BACKUP_NS as k8s Job backup-ns
+    participant BACKUP_NS as k8s Job Backup create
     participant K8S_NODE as k8s Node
     participant K8S_API as k8s API
     participant K8S_POD as k8s Pod
@@ -79,11 +81,81 @@ sequenceDiagram
     Note over BACKUP_NS: Backup complete
 ```
 
+### Label retention process
+
+This diagram shows how the retention process works for managing snapshots based on daily, weekly and monthly policies. This process is typically run globally, but can also be run on a per-namespace basis (as to how the RBAC service account allows access).
+
+```mermaid
+sequenceDiagram
+    participant RETAIN as k8s Job Retain
+    participant K8S_API as k8s API
+    
+    Note over RETAIN: Load ENV
+    
+    RETAIN->>K8S_API: Get namespaces with backup-ns.sh/retain labeled snapshots
+    K8S_API-->>RETAIN: List of namespaces
+    
+    loop Each namespace
+        RETAIN->>K8S_API: Get unique PVCs with snapshots
+        K8S_API-->>RETAIN: List of PVCs
+        
+        loop Each PVC
+            Note over RETAIN,K8S_API: Process daily retention
+            RETAIN->>K8S_API: Get daily labeled snapshots sorted by date
+            K8S_API-->>RETAIN: VS list
+            Note over RETAIN,K8S_API: Keep newest 7 daily snapshots by label.<br/>Remove daily labels from the other snapshots.
+            
+            Note over RETAIN,K8S_API: Process weekly retention
+            RETAIN->>K8S_API: Get weekly labeled snapshots sorted by date
+            K8S_API-->>RETAIN: VS list
+            Note over RETAIN,K8S_API: Keep newest 4 weekly snapshots by label.<br/>Remove weekly labels from the other snapshots.
+            
+            Note over RETAIN,K8S_API: Process monthly retention
+            RETAIN->>K8S_API: Get monthly labeled snapshots sorted by date
+            K8S_API-->>RETAIN: VS list
+            Note over RETAIN,K8S_API: Keep newest 12 monthly snapshots by label.<br/>Remove monthly labels from the other snapshots.
+        end
+    end
+```
+
+### Mark and delete process
+
+Volume snapshot that have lost all retention-related labels will be marked for deletion and subsequentally deleted. This diagram shows that. Like the retain process, this process is typically run globally, but can also be run on a per-namespace basis (as to how the RBAC service account allows access).
+
+```mermaid
+sequenceDiagram
+    participant MAD as k8s Job Mark and Delete
+    participant K8S_API as k8s API
+    
+    Note over MAD: Phase 1: Mark snapshots
+    
+    MAD->>K8S_API: Get VS with backup-ns.sh/retain=daily_weekly_monthly<br/>but no daily/weekly/monthly labels
+    K8S_API-->>MAD: List of snapshots to mark
+    
+    loop Each snapshot to mark
+        MAD->>K8S_API: Label with backup-ns.sh/delete-after=today
+        K8S_API-->>MAD: Label updated
+    end
+    
+    Note over MAD: Phase 2: Delete marked snapshots
+    
+    MAD->>K8S_API: Get VS with delete-after label
+    K8S_API-->>MAD: List of marked snapshots
+    
+    Note over MAD: Filter snapshots where<br/>delete-after date < today
+    
+    loop Each snapshot to delete
+        MAD->>K8S_API: Delete VolumeSnapshot
+        K8S_API-->>MAD: VS deleted
+        Note over MAD: Wait 5s between deletions
+    end
+```
+
 ## Usage
 
-> TODO Helm chart within `deploy/backup-ns` -> gh-pages
+> TODO Helm chart repo within `deploy/backup-ns` -> gh-pages and static deployment
 
-## Labels
+### Labels
 
 Here are some typical labels backup-ns currently uses and how to manipulate them manually:
 
