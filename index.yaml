@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  backup-ns:
+  - apiVersion: v2
+    appVersion: v0.1.0
+    created: "2024-10-29T17:57:59.888942069Z"
+    description: A Helm chart for Kubernetes
+    digest: 16734730fe456b449fc5c67e161b50700e0fb107cc032d1465c9ed4986915eb1
+    name: backup-ns
+    type: application
+    urls:
+    - https://github.com/allaboutapps/backup-ns/releases/download/backup-ns-0.1.0/backup-ns-0.1.0.tgz
+    version: 0.1.0
+generated: "2024-10-29T17:57:59.888952158Z"
