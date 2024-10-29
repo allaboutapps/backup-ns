@@ -37,9 +37,7 @@ go-format: ##- (opt) Runs go format.
 
 .PHONY: helm
 helm:
-	helm template ./deploy/backup-ns > ./deploy/backup-ns.tmp.yaml
-	helm template ./deploy/backup-ns -n customer-namespace -f deploy/samples/customer-namespace-backup.values.yaml > ./deploy/samples/customer-namespace-backup.rendered.yaml
-	helm package ./deploy/backup-ns -d ./deploy
+	helm template ./charts/backup-ns -n customer-namespace -f deploy/backup-ns/customer-namespace-backup-ns.values.yaml > ./deploy/backup-ns/customer-namespace-backup-ns.rendered.yaml
 
 .PHONY: go-build
 go-build: ##- (opt) Runs go build.
