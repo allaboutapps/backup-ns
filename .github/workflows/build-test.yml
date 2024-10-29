@@ -28,6 +28,7 @@ jobs:
         with:
           config: .github/config/kind.yml
           version: v0.24.0
+          name: backup-ns
           image: kindest/node:v1.28.13 # ensure same as in Makefile
 
       - name: setup@kubeconfig
