@@ -60,7 +60,7 @@ func TestSyncVSLabelsToVsc(t *testing.T) {
 	test.Snapshoter.Redact("backup-ns.sh/delete-after").SaveJSON(t, postSyncLabelMap)
 }
 
-func TestRebindVSC(t *testing.T) {
+func TestPreProvisionedVSC(t *testing.T) {
 
 	namespace, vsName := createTestVS(t)
 
@@ -110,6 +110,41 @@ func TestRebindVSC(t *testing.T) {
 
 	// ensure labels were successfully synced
 	test.Snapshoter.Redact("backup-ns.sh/delete-after").SaveJSON(t, postSyncLabelMap)
+}
+
+func TestRebindVSC(t *testing.T) {
+
+	rndStr := lib.GenerateRandomStringOrPanic(6)
+
+	namespace, vsName := createTestVS(t)
+
+	// sync labels
+	require.NoError(t, lib.SyncVSLabelsToVsc(namespace, vsName))
+
+	// grab the created VSC name
+	vscName, err := lib.GetVolumeSnapshotContentName(namespace, vsName)
+	require.NoError(t, err)
+
+	// now delete the vs without affecting the VSC (like what would happen if the ns was deleted)
+	cmd := exec.Command("kubectl", "-n", namespace, "delete", "volumesnapshot", vsName)
+	require.NoError(t, cmd.Run())
+
+	// Rebind the VSC to a new VS
+	require.NoError(t, lib.RebindVsc(vscName, rndStr, true, "25s"))
+
+	// old vsc should now be gone -> error!
+	_, err = lib.GetVolumeSnapshotContentObject(vscName)
+	require.Error(t, err)
+
+	// new vs should be created with the name "test-backup-generic-random"
+	newVsName := fmt.Sprintf("test-backup-generic-%s", rndStr)
+
+	// grab the created VSC name
+	newVscName, err := lib.GetVolumeSnapshotContentName(namespace, newVsName)
+	require.NoError(t, err)
+
+	// new vsc name should start with "restoredvsc-"
+	require.Contains(t, newVscName, "restoredvsc-")
 }
 
 func TestSyncVSLabelsToVscFail(t *testing.T) {
