@@ -7,6 +7,8 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func GetVolumeSnapshotContentName(namespace, volumeSnapshotName string) (string, error) {
@@ -165,7 +167,7 @@ func CreatePreProvisionedVSC(vscObject map[string]interface{}, postfix string) (
 	metadata := make(map[string]interface{})
 	originalMetadata := vscObject["metadata"].(map[string]interface{})
 
-	newVSCName := originalMetadata["name"].(string) + "-" + postfix
+	newVSCName := "restoredvsc-" + uuid.New().String()
 
 	metadata["name"] = newVSCName
 	if labels, ok := originalMetadata["labels"]; ok {
@@ -208,7 +210,12 @@ func CreatePreProvisionedVSC(vscObject map[string]interface{}, postfix string) (
 	// Set volumeSnapshotRef using the original values
 	originalVolumeSnapshotRef := originalSpec["volumeSnapshotRef"].(map[string]interface{})
 
-	newVSName := originalVolumeSnapshotRef["name"].(string) + "-" + postfix
+	// Get original name and remove any existing postfix (everything after last dash)
+	originalName := originalVolumeSnapshotRef["name"].(string)
+	if lastDashIndex := strings.LastIndex(originalName, "-"); lastDashIndex != -1 {
+		originalName = originalName[:lastDashIndex]
+	}
+	newVSName := originalName + "-" + postfix
 
 	spec["volumeSnapshotRef"] = map[string]interface{}{
 		"name":      newVSName,
@@ -248,6 +255,15 @@ func CreatePreProvisionedVSC(vscObject map[string]interface{}, postfix string) (
 	}
 
 	return createdVSC, nil
+}
+
+func DeleteVolumeSnapshotContent(volumeSnapshotContentName string) error {
+	deleteCmd := exec.Command("kubectl", "delete", "volumesnapshotcontent", volumeSnapshotContentName)
+	output, err := deleteCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to delete VolumeSnapshotContent: %w, output: %s", err, output)
+	}
+	return nil
 }
 
 // func deepCopy(src, dst map[string]interface{}) {

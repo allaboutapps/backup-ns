@@ -28,17 +28,17 @@ func init() {
 	rootCmd.AddCommand(rebindVscCmd)
 }
 
-func rebindVsc(vscName string) error {
+func rebindVsc(oldVSCName string) error {
 	config := lib.LoadConfig()
 
 	// Get the VolumeSnapshotContent object
-	vscObject, err := lib.GetVolumeSnapshotContentObject(vscName)
+	oldVSCObject, err := lib.GetVolumeSnapshotContentObject(oldVSCName)
 	if err != nil {
 		return fmt.Errorf("failed to get VolumeSnapshotContent object: %w", err)
 	}
 
 	// Create a restored VSC from the existing VSC
-	restoredVSC, err := lib.CreatePreProvisionedVSC(vscObject, config.VSRand)
+	restoredVSC, err := lib.CreatePreProvisionedVSC(oldVSCObject, config.VSRand)
 	if err != nil {
 		return fmt.Errorf("failed to create restored VolumeSnapshotContent: %w", err)
 	}
@@ -71,6 +71,28 @@ func rebindVsc(vscName string) error {
 		return fmt.Errorf("failed to create VolumeSnapshot: %w", err)
 	}
 
-	fmt.Printf("Successfully rebound VolumeSnapshotContent '%s' to new VolumeSnapshot '%s' in namespace '%s'\n", vscName, vsName, namespace)
+	fmt.Printf("Successfully rebound old VolumeSnapshotContent '%s' to new VolumeSnapshot '%s' in namespace '%s'\n", oldVSCName, vsName, namespace)
+
+	// Delete the old VolumeSnapshotContent after making sure its deletionPolicy is 'Retain'
+	fmt.Printf("Attempting to delete old VolumeSnapshotContent '%s'...\n", oldVSCName)
+
+	deletionPolicy, ok := oldVSCObject["spec"].(map[string]interface{})["deletionPolicy"].(string)
+	if !ok {
+		return fmt.Errorf("deletionPolicy not found in old VolumeSnapshotContent")
+	}
+
+	if deletionPolicy != "Retain" {
+		return fmt.Errorf("deletionPolicy is not 'Retain' in old VolumeSnapshotContent, refusing to delete")
+	}
+
+	fmt.Printf("Old VolumeSnapshotContent '%s' has deletionPolicy 'Retain' set and is thus safe to delete! Deleting...\n", oldVSCName)
+
+	err = lib.DeleteVolumeSnapshotContent(oldVSCName)
+	if err != nil {
+		return fmt.Errorf("failed to delete old VolumeSnapshotContent: %w", err)
+	}
+
+	fmt.Printf("Successfully deleted old VolumeSnapshotContent '%s'\n", oldVSCName)
+
 	return nil
 }
