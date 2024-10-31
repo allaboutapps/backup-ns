@@ -151,7 +151,8 @@ vs_apply_retain_policy() {
     log "processing ns='${ns}' pvc_label='${pvc_label}' retain_label='${retain_label}' retain_count='${retain_count}'..."
 
     # we keep the last $retain_count daily snapshots, let's get all current volumesnapshots with the label "$retain_label" sorted by latest asc
-    local sorted_snapshots; sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l"$retain_label","$pvc_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.metadata.creationTimestamp | tac)
+    # ensure to use .status.creationTime instead of .metadata.creationTimestamp as restored vs from dangling vsc (new preprovided vsc) are correctly sorted again!
+    local sorted_snapshots; sorted_snapshots=$(kubectl -n "$ns" get volumesnapshot -l"$retain_label","$pvc_label" -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' --sort-by=.status.creationTime | tac)
 
     local snapshots_retained; snapshots_retained=$(echo "$sorted_snapshots" | head -n "$retain_count")
 
