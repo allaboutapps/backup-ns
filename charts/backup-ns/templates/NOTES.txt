@@ -1,1 +1,1 @@
-Thank you for installing the backup-ns cronjob. Your release is named {{ .Release.Name }}.
+Thank you for installing the backup-ns cronjob. Your release is named '{{ .Release.Name }}'.

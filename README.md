@@ -8,7 +8,9 @@
     - [Mark and delete process](#mark-and-delete-process)
   - [Usage](#usage)
     - [Labels](#labels)
-  - [Development setup](#development-setup)
+  - [Development](#development)
+    - [Development Setup](#development-setup)
+    - [Releasing new versions](#releasing-new-versions)
   - [Maintainers](#maintainers)
   - [License](#license)
   - [Alternative projects](#alternative-projects)
@@ -16,7 +18,7 @@
 
 ## Introduction
 
-> This project is currently in a **alpha** state and only used internally at allaboutapps.  
+> This project is currently in an **alpha** state and only used internally at allaboutapps.  
 > Thus is **not ready for production use**! Expect **breaking changes**.
 
 This project extends Kubernetes CSI-based snapshots with application-aware (also called application-consistent) creation mechanisms. It is designed to be used in a multi-tenant cluster environments where namespaces are used to separate different customer applications. 
@@ -35,7 +37,7 @@ This section describes the various processes of the backup-ns tool.
 
 ### Application-aware backup creation
 
-This diagram shows the process of a backup job for a PostgreSQL database. The same is possibel with MySQL or by entirely skipping the database.
+This diagram shows the process of a backup job for a PostgreSQL database. The same is possible with MySQL or by entirely skipping the database.
 
 ```mermaid
 sequenceDiagram
@@ -120,7 +122,7 @@ sequenceDiagram
 
 ### Mark and delete process
 
-Volume snapshot that have lost all retention-related labels will be marked for deletion and subsequentally deleted. This diagram shows that. Like the retain process, this process is typically run globally, but can also be run on a per-namespace basis (as to how the RBAC service account allows access).
+Volume snapshots that have lost all retention-related labels will be marked for deletion and subsequently deleted. This diagram shows that. Like the retain process, this process is typically run globally, but can also be run on a per-namespace basis (as to how the RBAC service account allows access).
 
 ```mermaid
 sequenceDiagram
@@ -160,24 +162,26 @@ sequenceDiagram
 Here are some typical labels backup-ns currently uses and how to manipulate them manually:
 
 ```bash
-# remove a deleteAfter labeled vs (this prevents the backup-ns pruner from deleting the vs):
+# Remove a deleteAfter labeled vs (this prevents the backup-ns pruner from deleting the vs):
 kubectl label vs/<vs> "backup-ns.sh/delete-after"-
 
-# remove a specific label for daily/weekly/monthly retention
+# Remove a specific label for daily/weekly/monthly retention
 kubectl label vs/<vs> "backup-ns.sh/daily"-
 kubectl label vs/<vs> "backup-ns.sh/weekly"-
 kubectl label vs/<vs> "backup-ns.sh/monthly"-
 
-# add a specific label daily/weekly/monthly
+# Add a specific label daily/weekly/monthly
 kubectl label vs/<vs> "backup-ns.sh/daily"="YYYY-MM-DD"
 kubectl label vs/<vs> "backup-ns.sh/weekly"="YYYY-w04"
 kubectl label vs/<vs> "backup-ns.sh/monthly"="YYYY-MM"
 
-# add a specific deleteAfter label (the pruner will delete the vs after the specified date)! 
+# Add a specific deleteAfter label (the pruner will delete the vs after the specified date)!
 kubectl label vs/<vs> "backup-ns.sh/delete-after"="YYYY-MM-DD"
 ```
 
-## Development setup
+## Development
+
+### Development Setup
 
 Requires the following local setup for development:
 
@@ -230,6 +234,17 @@ development@f4a7ad3b5e3d:/app$ make test
 # Watch pipeline (rebuilds all after any change)
 development@f4a7ad3b5e3d:/app$ make watch
 ```
+
+### Releasing new versions
+
+This project uses GitHub Actions to build and push the Docker image to the GitHub Container Registry.  
+Auto-Publish is active for the `dev` and `main` branch.
+
+The `helm/chart-releaser-action` ensures that the Helm chart is published to the GitHub Pages branch.
+
+To deploy a new app and chart version:
+* Bump the `version` (for the chart) and `appVersion` (for the docker image) in the `charts/backup-ns/Chart.yaml` file and push to `main`.
+* Create a new git tag with the above `appVersion` (e.g. `git tag -a v0.1.1 -m "v0.1.1"` ) and push it to the GitHub repository.
 
 ## Maintainers
 
