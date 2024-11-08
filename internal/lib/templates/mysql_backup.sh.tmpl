@@ -9,6 +9,9 @@ set -Eeox pipefail
 # we will automatically remove the dump file in case of failure!
 trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f {{.DumpFile}} && df -h {{.DumpFileDir}}; exit $exit_code' EXIT
 
+# Add trap for SIGPIPE and SIGTERM to kill the entire process group
+trap 'trap - SIGTERM && kill -- -$$' SIGTERM SIGPIPE
+
 # create dump and pipe to gzip archive (default password injected via above MYSQL_PWD)
 mysqldump \
     --host {{.Host}} \

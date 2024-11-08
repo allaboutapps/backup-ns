@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -Eeox pipefail
+
+trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f {{.TestFile}}; exit $exit_code' EXIT
+
+# Add trap for SIGPIPE and SIGTERM to kill the entire process group
+trap 'trap - SIGTERM && kill -- -$$' SIGTERM SIGPIPE
+
+# Run sleep in its own process group
+# We need to test if we can properly break out of the sleep command with the org process terminates
+touch {{.TestFile}}
+{{.Cmd}}
+
+echo "done"

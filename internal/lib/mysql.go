@@ -1,11 +1,9 @@
 package lib
 
 import (
-	"bytes"
 	_ "embed"
 	"fmt"
 	"log"
-	"os/exec"
 	"path/filepath"
 	"text/template"
 )
@@ -24,20 +22,7 @@ func EnsureMySQLAvailable(namespace string, config MySQLConfig) error {
 		return fmt.Errorf("failed to parse MySQL check script template: %w", err)
 	}
 
-	var script bytes.Buffer
-	if err := tmpl.Execute(&script, config); err != nil {
-		return fmt.Errorf("failed to execute MySQL check script template: %w", err)
-	}
-
-	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-i", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-s")
-	cmd.Stdin = bytes.NewBufferString(script.String() + "\n")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Error checking MySQL availability: %w\nOutput: %s", err, string(output))
-	}
-	log.Printf("MySQL is available in namespace '%s'. Output:\n%s", namespace, string(output))
-	return nil
+	return KubectlExecTemplate(namespace, config.ExecResource, config.ExecContainer, tmpl, config)
 }
 
 func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) error {
@@ -62,18 +47,5 @@ func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) error {
 		return fmt.Errorf("failed to parse MySQL backup script template: %w", err)
 	}
 
-	var script bytes.Buffer
-	if err := tmpl.Execute(&script, data); err != nil {
-		return fmt.Errorf("failed to execute MySQL backup script template: %w", err)
-	}
-
-	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-i", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-s")
-	cmd.Stdin = bytes.NewBufferString(script.String() + "\n")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Error backing up MySQL: %w\nOutput: %s", err, string(output))
-	}
-	log.Printf("MySQL backup completed. Output:\n%s", string(output))
-	return nil
+	return KubectlExecTemplate(namespace, config.ExecResource, config.ExecContainer, tmpl, data)
 }
