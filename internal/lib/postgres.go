@@ -1,32 +1,36 @@
 package lib
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
 	"log"
 	"os/exec"
 	"path/filepath"
+	"text/template"
 )
+
+//go:embed templates/postgres_check.sh.tmpl
+var postgresCheckScript string
+
+//go:embed templates/postgres_backup.sh.tmpl
+var postgresBackupScript string
 
 func EnsurePostgresAvailable(namespace string, config PostgresConfig) error {
 	log.Printf("Checking if Postgres is available in namespace '%s'...", namespace)
 
-	script := fmt.Sprintf(`
-		# inject default PGPASSWORD into current env (before cmds are visible in logs)
-		export PGPASSWORD=%s
-		
-		set -Eeox pipefail
+	tmpl, err := template.New("postgres_check").Parse(postgresCheckScript)
+	if err != nil {
+		return fmt.Errorf("failed to parse Postgres check script template: %w", err)
+	}
 
-		# check clis are available
-		command -v gzip
-		psql --version
-		pg_dump --version
-
-		# check db is accessible
-		psql --username=%s %s -c "SELECT 1;" >/dev/null
-	`, config.Password, config.User, config.DB)
+	var script bytes.Buffer
+	if err := tmpl.Execute(&script, config); err != nil {
+		return fmt.Errorf("failed to execute Postgres check script template: %w", err)
+	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script.String())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Error checking Postgres availability: %w\nOutput: %s", err, string(output))
@@ -44,33 +48,28 @@ func BackupPostgres(namespace string, dryRun bool, config PostgresConfig) error 
 	}
 	log.Printf("Backing up Postgres database '%s' in namespace '%s'...", config.DB, namespace)
 
-	script := fmt.Sprintf(`
-		# inject default PGPASSWORD into current env (before cmds are visible in logs)
-		export PGPASSWORD=%s
+	// Create template data with computed fields
+	type templateData struct {
+		PostgresConfig
+		DumpFileDir string
+	}
+	data := templateData{
+		PostgresConfig: config,
+		DumpFileDir:    filepath.Dir(config.DumpFile),
+	}
 
-		set -Eeox pipefail
+	tmpl, err := template.New("postgres_backup").Parse(postgresBackupScript)
+	if err != nil {
+		return fmt.Errorf("failed to parse Postgres backup script template: %w", err)
+	}
 
-		# setup trap in case of dump failure to disk (typically due to disk space issues)
-        # we will automatically remove the dump file in case of failure!
-		trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f %s && df -h %s; exit $exit_code' EXIT
-		
-		# create dump and pipe to gzip archive
-		pg_dump --username=%s --format=p --clean --if-exists %s | gzip -c > %s
-		
-		# print dump file info
-		ls -lha %s
-		
-		# ensure generated file is bigger than 0 bytes
-		[ -s %s ] || exit 1
-		
-		# print mounted disk space
-		df -h %s
-	`, config.Password, config.DumpFile, filepath.Dir(config.DumpFile),
-		config.User, config.DB, config.DumpFile,
-		config.DumpFile, config.DumpFile, filepath.Dir(config.DumpFile))
+	var script bytes.Buffer
+	if err := tmpl.Execute(&script, data); err != nil {
+		return fmt.Errorf("failed to execute Postgres backup script template: %w", err)
+	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script.String())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Error backing up Postgres: %w\nOutput: %s", err, string(output))

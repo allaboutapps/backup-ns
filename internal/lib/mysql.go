@@ -1,37 +1,36 @@
 package lib
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
 	"log"
 	"os/exec"
 	"path/filepath"
+	"text/template"
 )
+
+//go:embed templates/mysql_check.sh.tmpl
+var mysqlCheckScript string
+
+//go:embed templates/mysql_backup.sh.tmpl
+var mysqlBackupScript string
 
 func EnsureMySQLAvailable(namespace string, config MySQLConfig) error {
 	log.Printf("Checking if MySQL is available in namespace '%s'...", namespace)
 
-	script := fmt.Sprintf(`
-		# inject default MYSQL_PWD into current env (before cmds are visible in logs)
-		export MYSQL_PWD=%s
+	tmpl, err := template.New("mysql_check").Parse(mysqlCheckScript)
+	if err != nil {
+		return fmt.Errorf("failed to parse MySQL check script template: %w", err)
+	}
 
-		set -Eeox pipefail
-
-		# check clis are available
-		command -v gzip
-		mysql --version
-		mysqldump --version
-
-		# check db is accessible (default password injected via above MYSQL_PWD)
-		mysql \
-			--host %s \
-			--user %s \
-			--default-character-set=utf8 \
-			%s \
-			-e "SELECT 1;" >/dev/null
-	`, config.Password, config.Host, config.User, config.DB)
+	var script bytes.Buffer
+	if err := tmpl.Execute(&script, config); err != nil {
+		return fmt.Errorf("failed to execute MySQL check script template: %w", err)
+	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script.String())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Error checking MySQL availability: %w\nOutput: %s", err, string(output))
@@ -47,44 +46,28 @@ func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) error {
 	}
 	log.Printf("Backing up MySQL database '%s' in namespace '%s'...", config.DB, namespace)
 
-	script := fmt.Sprintf(`
-		# inject default MYSQL_PWD into current env (before cmds are visible in logs)
-		export MYSQL_PWD=%s
+	// Create template data with computed fields
+	type templateData struct {
+		MySQLConfig
+		DumpFileDir string
+	}
+	data := templateData{
+		MySQLConfig: config,
+		DumpFileDir: filepath.Dir(config.DumpFile),
+	}
 
-		set -Eeox pipefail
-		
-        # setup trap in case of dump failure to disk (typically due to disk space issues)
-        # we will automatically remove the dump file in case of failure!
-		trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f %s && df -h %s; exit $exit_code' EXIT
-		
-		# create dump and pipe to gzip archive (default password injected via above MYSQL_PWD)
-		mysqldump \
-            --host %s \
-            --user %s \
-            --default-character-set=utf8 \
-            --add-locks \
-            --set-charset \
-            --compact \
-            --create-options \
-            --add-drop-table \
-            --lock-tables \
-            %s \
-            | gzip -c > %s
-		
-		# print dump file info
-		ls -lha %s
-		
-		# ensure generated file is bigger than 0 bytes
-		[ -s %s ] || exit 1
-		
-		# print mounted disk space
-		df -h %s
-	`, config.Password, config.DumpFile, filepath.Dir(config.DumpFile),
-		config.Host, config.User, config.DB, config.DumpFile,
-		config.DumpFile, config.DumpFile, filepath.Dir(config.DumpFile))
+	tmpl, err := template.New("mysql_backup").Parse(mysqlBackupScript)
+	if err != nil {
+		return fmt.Errorf("failed to parse MySQL backup script template: %w", err)
+	}
+
+	var script bytes.Buffer
+	if err := tmpl.Execute(&script, data); err != nil {
+		return fmt.Errorf("failed to execute MySQL backup script template: %w", err)
+	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script.String())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Error backing up MySQL: %w\nOutput: %s", err, string(output))

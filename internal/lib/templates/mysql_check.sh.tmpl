@@ -1,0 +1,17 @@
+# inject default MYSQL_PWD into current env (before cmds are visible in logs)
+export MYSQL_PWD={{.Password}}
+
+set -Eeox pipefail
+
+# check clis are available
+command -v gzip
+mysql --version
+mysqldump --version
+
+# check db is accessible (default password injected via above MYSQL_PWD)
+mysql \
+    --host {{.Host}} \
+    --user {{.User}} \
+    --default-character-set=utf8 \
+    {{.DB}} \
+    -e "SELECT 1;" >/dev/null

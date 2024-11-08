@@ -1,0 +1,31 @@
+# inject default MYSQL_PWD into current env (before cmds are visible in logs)
+export MYSQL_PWD={{.Password}}
+
+set -Eeox pipefail
+
+# setup trap in case of dump failure to disk (typically due to disk space issues)
+# we will automatically remove the dump file in case of failure!
+trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f {{.DumpFile}} && df -h {{.DumpFileDir}}; exit $exit_code' EXIT
+
+# create dump and pipe to gzip archive (default password injected via above MYSQL_PWD)
+mysqldump \
+    --host {{.Host}} \
+    --user {{.User}} \
+    --default-character-set=utf8 \
+    --add-locks \
+    --set-charset \
+    --compact \
+    --create-options \
+    --add-drop-table \
+    --lock-tables \
+    {{.DB}} \
+    | gzip -c > {{.DumpFile}}
+
+# print dump file info
+ls -lha {{.DumpFile}}
+
+# ensure generated file is bigger than 0 bytes
+[ -s {{.DumpFile}} ] || exit 1
+
+# print mounted disk space
+df -h {{.DumpFileDir}}

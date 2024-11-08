@@ -20,7 +20,7 @@ all: init ##- Runs all of our common make targets: clean, init, build and test.
 .PHONY: watch
 watch: ##- Watches for changes and runs 'make build' on modifications.
 	@echo Watching. Use Ctrl-c to exit.
-	watchexec -r -w . --exts go,yaml -i *.tmp.yaml -i *.rendered.yaml $(MAKE) build
+	watchexec -r -w . --exts go,yaml,tmpl -i *.tmp.yaml -i *.rendered.yaml $(MAKE) build
 
 .PHONY: info
 info: ##- Prints info about go.mod updates and current go version.

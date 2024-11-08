@@ -1,0 +1,12 @@
+# inject default PGPASSWORD into current env (before cmds are visible in logs)
+export PGPASSWORD={{.Password}}
+
+set -Eeox pipefail
+
+# check clis are available
+command -v gzip
+psql --version
+pg_dump --version
+
+# check db is accessible
+psql --username={{.User}} {{.DB}} -c "SELECT 1;" >/dev/null
