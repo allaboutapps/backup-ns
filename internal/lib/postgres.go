@@ -30,7 +30,8 @@ func EnsurePostgresAvailable(namespace string, config PostgresConfig) error {
 	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script.String())
+	cmd := exec.Command("kubectl", "exec", "-i", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-s")
+	cmd.Stdin = bytes.NewBufferString(script.String() + "\n")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Error checking Postgres availability: %w\nOutput: %s", err, string(output))
@@ -69,7 +70,8 @@ func BackupPostgres(namespace string, dryRun bool, config PostgresConfig) error 
 	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script.String())
+	cmd := exec.Command("kubectl", "exec", "-i", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-s")
+	cmd.Stdin = bytes.NewBufferString(script.String() + "\n")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Error backing up Postgres: %w\nOutput: %s", err, string(output))

@@ -30,7 +30,8 @@ func EnsureMySQLAvailable(namespace string, config MySQLConfig) error {
 	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script.String())
+	cmd := exec.Command("kubectl", "exec", "-i", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-s")
+	cmd.Stdin = bytes.NewBufferString(script.String() + "\n")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Error checking MySQL availability: %w\nOutput: %s", err, string(output))
@@ -67,7 +68,8 @@ func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) error {
 	}
 
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-c", script.String())
+	cmd := exec.Command("kubectl", "exec", "-i", "-n", namespace, config.ExecResource, "-c", config.ExecContainer, "--", "bash", "-s")
+	cmd.Stdin = bytes.NewBufferString(script.String() + "\n")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Error backing up MySQL: %w\nOutput: %s", err, string(output))

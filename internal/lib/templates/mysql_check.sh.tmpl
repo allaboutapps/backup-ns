@@ -1,5 +1,7 @@
+#!/bin/bash
+
 # inject default MYSQL_PWD into current env (before cmds are visible in logs)
-export MYSQL_PWD={{.Password}}
+export MYSQL_PWD="{{.Password}}"
 
 set -Eeox pipefail
 
