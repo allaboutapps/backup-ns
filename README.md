@@ -13,7 +13,7 @@
     - [Releasing new versions](#releasing-new-versions)
   - [Maintainers](#maintainers)
   - [License](#license)
-  - [Alternative projects](#alternative-projects)
+  - [Alternatives](#alternatives)
 
 
 ## Introduction
@@ -28,7 +28,7 @@ Current focus:
 * Using the proper compatible `mysqldump` and `pg_dump` is crucial when doing dumps! By executing these dumps in the same pod as the database container, compatibility is guaranteed.
 * Stick to the primitives. Just use k8s `CronJobs` for daily backup and handle retention with labels. 
 * Control backup job concurrency on the node-level via flock.
-* Mark and sweep like handling, giving you time between marking and deleting.
+* Mark and sweep like handling, giving you time between marking the volume snapshot for deletion and actual deletion.
 * Low-dependency, only `kubectl` must be in the `PATH`.
 
 ## Processes
@@ -254,8 +254,9 @@ To deploy a new app and chart version:
 
 [MIT](LICENSE) © 2024 aaa – all about apps GmbH | Mario Ranftl and the backup-ns project contributors
 
-## Alternative projects
+## Alternatives
 
 * [backube/snapscheduler](https://github.com/backube/snapscheduler): Based on CSI snapshots, but using CRDs and without the option to do application consistent snapshots (no pre/post hooks).
+* [FairwindsOps/gemini](https://github.com/FairwindsOps/gemini): Very similar to snapscheduler (CRDs + CSI based snapshots), different scheduling and retention handling.
 * [k8up-io/k8up](https://github.com/k8up-io/k8up): Based on Restic, requires launching pods with direct access to the PVC to backup and custom CRDs.
 * [vmware-tanzu/velero](https://github.com/vmware-tanzu/velero): Global cluster disaster recovery (difficult to target singular namespaces) and custom CRDs.
