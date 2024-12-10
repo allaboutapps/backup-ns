@@ -9,7 +9,7 @@ import (
 	"github.com/allaboutapps/backup-ns/internal/lib"
 )
 
-func TestBackupMySQL(t *testing.T) {
+func TestDumpMySQL(t *testing.T) {
 	vsName := fmt.Sprintf("test-backup-mysql-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "mysql-test"
 
@@ -47,7 +47,7 @@ func TestBackupMySQL(t *testing.T) {
 		t.Fatal("ensure free space failed: ", err)
 	}
 
-	if err := lib.BackupMySQL(namespace, false, mysqlConfig); err != nil {
+	if err := lib.DumpMySQL(namespace, false, mysqlConfig); err != nil {
 		t.Fatal("backup MySQL failed: ", err)
 	}
 

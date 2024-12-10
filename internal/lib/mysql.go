@@ -11,8 +11,8 @@ import (
 //go:embed templates/mysql_check.sh.tmpl
 var mysqlCheckScript string
 
-//go:embed templates/mysql_backup.sh.tmpl
-var mysqlBackupScript string
+//go:embed templates/mysql_dump.sh.tmpl
+var mysqlDumpScript string
 
 func EnsureMySQLAvailable(namespace string, config MySQLConfig) error {
 	log.Printf("Checking if MySQL is available in namespace '%s'...", namespace)
@@ -25,7 +25,7 @@ func EnsureMySQLAvailable(namespace string, config MySQLConfig) error {
 	return KubectlExecTemplate(namespace, config.ExecResource, config.ExecContainer, tmpl, config)
 }
 
-func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) error {
+func DumpMySQL(namespace string, dryRun bool, config MySQLConfig) error {
 	if dryRun {
 		log.Println("Skipping MySQL backup - dry run mode is active")
 		return nil
@@ -42,7 +42,7 @@ func BackupMySQL(namespace string, dryRun bool, config MySQLConfig) error {
 		DumpFileDir: filepath.Dir(config.DumpFile),
 	}
 
-	tmpl, err := template.New("mysql_backup").Parse(mysqlBackupScript)
+	tmpl, err := template.New("mysql_backup").Parse(mysqlDumpScript)
 	if err != nil {
 		return fmt.Errorf("failed to parse MySQL backup script template: %w", err)
 	}

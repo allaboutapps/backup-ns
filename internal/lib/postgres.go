@@ -11,8 +11,8 @@ import (
 //go:embed templates/postgres_check.sh.tmpl
 var postgresCheckScript string
 
-//go:embed templates/postgres_backup.sh.tmpl
-var postgresBackupScript string
+//go:embed templates/postgres_dump.sh.tmpl
+var postgresDumpScript string
 
 func EnsurePostgresAvailable(namespace string, config PostgresConfig) error {
 	log.Printf("Checking if Postgres is available in namespace '%s'...", namespace)
@@ -25,7 +25,7 @@ func EnsurePostgresAvailable(namespace string, config PostgresConfig) error {
 	return KubectlExecTemplate(namespace, config.ExecResource, config.ExecContainer, tmpl, config)
 }
 
-func BackupPostgres(namespace string, dryRun bool, config PostgresConfig) error {
+func DumpPostgres(namespace string, dryRun bool, config PostgresConfig) error {
 	if dryRun {
 		log.Println("Skipping Postgres backup - dry run mode is active")
 		return nil
@@ -42,7 +42,7 @@ func BackupPostgres(namespace string, dryRun bool, config PostgresConfig) error 
 		DumpFileDir:    filepath.Dir(config.DumpFile),
 	}
 
-	tmpl, err := template.New("postgres_backup").Parse(postgresBackupScript)
+	tmpl, err := template.New("postgres_backup").Parse(postgresDumpScript)
 	if err != nil {
 		return fmt.Errorf("failed to parse Postgres backup script template: %w", err)
 	}

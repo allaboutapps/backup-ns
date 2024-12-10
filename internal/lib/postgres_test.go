@@ -10,7 +10,7 @@ import (
 	"github.com/allaboutapps/backup-ns/internal/test"
 )
 
-func TestBackupPostgres(t *testing.T) {
+func TestDumpPostgres(t *testing.T) {
 	vsName := fmt.Sprintf("test-backup-postgres-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "postgres-test"
 
@@ -47,7 +47,7 @@ func TestBackupPostgres(t *testing.T) {
 		t.Fatal("ensure free space failed: ", err)
 	}
 
-	if err := lib.BackupPostgres(namespace, false, postgresConfig); err != nil {
+	if err := lib.DumpPostgres(namespace, false, postgresConfig); err != nil {
 		t.Fatal("backup Postgres failed: ", err)
 	}
 

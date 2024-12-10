@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//go:embed templates/trap_test.sh.tmpl
-var trapTestScript string
+//go:embed templates/test_trap.sh.tmpl
+var testTrapScript string
 
 func TestTrap(t *testing.T) {
 	// Create template data with computed fields
@@ -23,7 +23,7 @@ func TestTrap(t *testing.T) {
 		Cmd:      "sleep 0.1",
 	}
 
-	tmpl, err := template.New("traptest").Parse(trapTestScript)
+	tmpl, err := template.New("traptest").Parse(testTrapScript)
 	require.NoError(t, err)
 
 	require.NoError(t, lib.KubectlExecTemplate("generic-test", "deployment/writer", "debian", tmpl, data))
@@ -42,7 +42,7 @@ func TestTrapCommandFail(t *testing.T) {
 		Cmd:      "thiscommanddoesnotexist",
 	}
 
-	tmpl, err := template.New("traptest").Parse(trapTestScript)
+	tmpl, err := template.New("traptest").Parse(testTrapScript)
 	require.NoError(t, err)
 
 	require.Error(t, lib.KubectlExecTemplate("generic-test", "deployment/writer", "debian", tmpl, data))
