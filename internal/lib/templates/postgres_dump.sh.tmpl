@@ -13,7 +13,7 @@ trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f {{.DumpFile}} 
 trap 'trap - SIGTERM && kill -- -$$' SIGTERM SIGPIPE
 
 # create dump and pipe to gzip archive
-pg_dump --username={{.User}} --format=p --clean --if-exists {{.DB}} | gzip -c > {{.DumpFile}}
+pg_dump --username={{.User}} --format=p --clean --if-exists {{.DB}} --host {{.Host}} --port {{.Port}} | gzip -c > {{.DumpFile}}
 
 # print dump file info
 ls -lha {{.DumpFile}}

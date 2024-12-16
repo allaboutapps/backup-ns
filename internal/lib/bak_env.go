@@ -41,20 +41,24 @@ type PostgresConfig struct {
 	ExecResource  string `json:"BAK_DB_POSTGRES_EXEC_RESOURCE"`
 	ExecContainer string `json:"BAK_DB_POSTGRES_EXEC_CONTAINER"`
 	DumpFile      string `json:"BAK_DB_POSTGRES_DUMP_FILE"`
+	Host          string `json:"BAK_DB_POSTGRES_HOST"`
+	Port          string `json:"BAK_DB_POSTGRES_PORT"`
 	User          string `json:"BAK_DB_POSTGRES_USER"`
 	Password      string `json:"-"` // sensitive
 	DB            string `json:"BAK_DB_POSTGRES_DB"`
 }
 
 type MySQLConfig struct {
-	Enabled       bool   `json:"BAK_DB_MYSQL"`
-	ExecResource  string `json:"BAK_DB_MYSQL_EXEC_RESOURCE"`
-	ExecContainer string `json:"BAK_DB_MYSQL_EXEC_CONTAINER"`
-	DumpFile      string `json:"BAK_DB_MYSQL_DUMP_FILE"`
-	Host          string `json:"BAK_DB_MYSQL_HOST"`
-	User          string `json:"BAK_DB_MYSQL_USER"`
-	Password      string `json:"-"` // sensitive
-	DB            string `json:"BAK_DB_MYSQL_DB"`
+	Enabled             bool   `json:"BAK_DB_MYSQL"`
+	ExecResource        string `json:"BAK_DB_MYSQL_EXEC_RESOURCE"`
+	ExecContainer       string `json:"BAK_DB_MYSQL_EXEC_CONTAINER"`
+	DumpFile            string `json:"BAK_DB_MYSQL_DUMP_FILE"`
+	Host                string `json:"BAK_DB_MYSQL_HOST"`
+	Port                string `json:"BAK_DB_MYSQL_PORT"`
+	User                string `json:"BAK_DB_MYSQL_USER"`
+	Password            string `json:"-"` // sensitive
+	DB                  string `json:"BAK_DB_MYSQL_DB"`
+	DefaultCharacterSet string `json:"BAK_DB_MYSQL_DEFAULT_CHARACTER_SET"`
 }
 
 type FlockConfig struct {
@@ -126,6 +130,12 @@ func LoadConfig() Config {
 			// The file inside the container to store the dump
 			DumpFile: util.GetEnv("BAK_DB_POSTGRES_DUMP_FILE", "/var/lib/postgresql/data/dump.sql.gz"),
 
+			// The postgresql host to use for connecting/creating/restoring the dump
+			Host: util.GetEnv("BAK_DB_POSTGRES_HOST", "127.0.0.1"),
+
+			// The postgresql host to use for connecting/creating/restoring the dump
+			Port: util.GetEnv("BAK_DB_POSTGRES_PORT", "5432"),
+
 			// The postgresql user to use for connecting/creating the dump (psql and pg_dump must be allowed)
 			// Read from inside the *container* by default (${POSTGRES_USER})
 			User: util.GetEnv("BAK_DB_POSTGRES_USER", "${POSTGRES_USER}"),
@@ -152,8 +162,11 @@ func LoadConfig() Config {
 			// The file inside the container to store the dump
 			DumpFile: util.GetEnv("BAK_DB_MYSQL_DUMP_FILE", "/var/lib/mysql/dump.sql.gz"),
 
-			// The mysql host to use for connecting/creating the dump
+			// The mysql host to use for connecting/creating/restoring the dump
 			Host: util.GetEnv("BAK_DB_MYSQL_HOST", "127.0.0.1"),
+
+			// The mysql host to use for connecting/creating/restoring the dump
+			Port: util.GetEnv("BAK_DB_MYSQL_PORT", "3306"),
 
 			// The mysql user to use for connecting/creating the dump
 			User: util.GetEnv("BAK_DB_MYSQL_USER", "root"),
@@ -165,6 +178,10 @@ func LoadConfig() Config {
 			// The mysql database to use for connecting/creating the dump
 			// Read from inside the *container* by default (${MYSQL_DATABASE})
 			DB: util.GetEnv("BAK_DB_MYSQL_DB", "${MYSQL_DATABASE}"),
+
+			// The mysql character set to use for connecting/creating the dump
+			// utf8 is by default active for backwards compatibility
+			DefaultCharacterSet: util.GetEnv("BAK_DB_MYSQL_DEFAULT_CHARACTER_SET", "utf8"),
 		},
 
 		Flock: FlockConfig{

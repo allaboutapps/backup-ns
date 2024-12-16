@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# inject default MYSQL_PWD into current env (before cmds are visible in logs)
+export MYSQL_PWD="{{.Password}}"
+
+set -Eeox pipefail
+
+# ensure the dump file exists...
+[ -s {{.DumpFile}} ] || exit 1
+
+# print dump file info
+ls -lha {{.DumpFile}}
+
+# restore from dump file
+gzip -dc {{.DumpFile}} | mysql \
+    --host={{.Host}} \
+    --port={{.Port}} \
+    --user={{.User}} \
+    --default-character-set={{.DefaultCharacterSet}} \
+    {{.DB}}

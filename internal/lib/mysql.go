@@ -14,6 +14,9 @@ var mysqlCheckScript string
 //go:embed templates/mysql_dump.sh.tmpl
 var mysqlDumpScript string
 
+//go:embed templates/mysql_restore.sh.tmpl
+var mysqlRestoreScript string
+
 func EnsureMySQLAvailable(namespace string, config MySQLConfig) error {
 	log.Printf("Checking if MySQL is available in namespace '%s'...", namespace)
 
@@ -48,4 +51,19 @@ func DumpMySQL(namespace string, dryRun bool, config MySQLConfig) error {
 	}
 
 	return KubectlExecTemplate(namespace, config.ExecResource, config.ExecContainer, tmpl, data)
+}
+
+func RestoreMySQL(namespace string, dryRun bool, config MySQLConfig) error {
+	if dryRun {
+		log.Println("Skipping MySQL restore - dry run mode is active")
+		return nil
+	}
+	log.Printf("Restoring MySQL database '%s' in namespace '%s'...", config.DB, namespace)
+
+	tmpl, err := template.New("mysql_backup").Parse(mysqlRestoreScript)
+	if err != nil {
+		return fmt.Errorf("failed to parse MySQL restore script template: %w", err)
+	}
+
+	return KubectlExecTemplate(namespace, config.ExecResource, config.ExecContainer, tmpl, config)
 }

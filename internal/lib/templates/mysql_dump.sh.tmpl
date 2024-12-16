@@ -15,8 +15,9 @@ trap 'trap - SIGTERM && kill -- -$$' SIGTERM SIGPIPE
 # create dump and pipe to gzip archive (default password injected via above MYSQL_PWD)
 mysqldump \
     --host {{.Host}} \
+    --port {{.Port}} \
     --user {{.User}} \
-    --default-character-set=utf8 \
+    --default-character-set={{.DefaultCharacterSet}} \
     --add-locks \
     --set-charset \
     --compact \

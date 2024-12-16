@@ -9,19 +9,21 @@ import (
 	"github.com/allaboutapps/backup-ns/internal/lib"
 )
 
-func TestDumpMySQL(t *testing.T) {
+func TestDumpAndRestoreMySQL(t *testing.T) {
 	vsName := fmt.Sprintf("test-backup-mysql-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "mysql-test"
 
 	mysqlConfig := lib.MySQLConfig{
-		Enabled:       true,
-		ExecResource:  "deployment/mysql",
-		ExecContainer: "mysql",
-		DumpFile:      "/var/lib/mysql/dump.sql.gz",
-		Host:          "127.0.0.1",
-		User:          "root",
-		Password:      "${MYSQL_ROOT_PASSWORD}",
-		DB:            "${MYSQL_DATABASE}",
+		Enabled:             true,
+		ExecResource:        "deployment/mysql",
+		ExecContainer:       "mysql",
+		DumpFile:            "/var/lib/mysql/dump.sql.gz",
+		Host:                "127.0.0.1",
+		Port:                "3306",
+		User:                "root",
+		Password:            "${MYSQL_ROOT_PASSWORD}",
+		DB:                  "${MYSQL_DATABASE}",
+		DefaultCharacterSet: "utf8",
 	}
 
 	labelVSConfig := lib.LabelVSConfig{
@@ -64,5 +66,9 @@ func TestDumpMySQL(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatal("get vs failed: ", err, string(output))
+	}
+
+	if err := lib.RestoreMySQL(namespace, false, mysqlConfig); err != nil {
+		t.Fatal("restore Postgres failed: ", err)
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/allaboutapps/backup-ns/internal/test"
 )
 
-func TestDumpPostgres(t *testing.T) {
+func TestDumpAndRestorePostgres(t *testing.T) {
 	vsName := fmt.Sprintf("test-backup-postgres-%s", lib.GenerateRandomStringOrPanic(6))
 	namespace := "postgres-test"
 
@@ -22,6 +22,8 @@ func TestDumpPostgres(t *testing.T) {
 		User:          "${POSTGRES_USER}",     // read inside container
 		Password:      "${POSTGRES_PASSWORD}", // read inside container
 		DB:            "${POSTGRES_DB}",       // read inside container
+		Host:          "127.0.0.1",
+		Port:          "5432",
 	}
 
 	labelVSConfig := lib.LabelVSConfig{
@@ -71,4 +73,9 @@ func TestDumpPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal("get vs failed: ", err, string(output))
 	}
+
+	if err := lib.RestorePostgres(namespace, false, postgresConfig); err != nil {
+		t.Fatal("restore Postgres failed: ", err)
+	}
+
 }

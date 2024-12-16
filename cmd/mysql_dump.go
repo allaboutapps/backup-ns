@@ -23,6 +23,8 @@ var mysqlDumpCmd = &cobra.Command{
 		if !config.MySQL.Enabled {
 			log.Fatal("BAK_DB_MYSQL=true must be set.")
 		}
+
+		runMySQLDump(config)
 	},
 }
 

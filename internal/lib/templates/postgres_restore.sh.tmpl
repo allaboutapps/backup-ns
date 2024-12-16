@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# inject default PGPASSWORD into current env (before cmds are visible in logs)
+export PGPASSWORD="{{.Password}}"
+
+set -Eeox pipefail
+
+# ensure the dump file exists...
+[ -s {{.DumpFile}} ] || exit 1
+
+# print dump file info
+ls -lha {{.DumpFile}}
+
+# restore from dump file
+gzip -dc {{.DumpFile}} | psql --host {{.Host}} --port {{.Port}} --username={{.User}} {{.DB}}

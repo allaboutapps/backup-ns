@@ -11,4 +11,4 @@ psql --version
 pg_dump --version
 
 # check db is accessible
-psql --username={{.User}} {{.DB}} -c "SELECT 1;" >/dev/null
+psql --username={{.User}} {{.DB}} --host {{.Host}} --port {{.Port}} -c "SELECT 1;" >/dev/null
