@@ -32,7 +32,7 @@ services:
       - bash-history:/home/development/commandhistory
 
     environment:
-      # project root directory, used for relative path resolution (e.g. fixtures)
+      # project root directory, used for relative path resolution (e.g. templates)
       PROJECT_ROOT_DIR: *PROJECT_ROOT_DIR
 
     # Uncomment the next four lines if you will use a ptrace-based debugger like C++, Go, and Rust.
