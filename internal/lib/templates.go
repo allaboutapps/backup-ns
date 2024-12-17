@@ -25,7 +25,7 @@ func init() {
 	tmpl, err := template.ParseFS(templates, "templates/*.sh.tmpl")
 
 	if err != nil {
-		log.Fatal("Failed to parse templates/*.sh.tmpl templates.")
+		log.Fatal("Failed to parse embedded templates/*.sh.tmpl templates.")
 	}
 
 	templateAtlas = TemplateAtlas{
@@ -37,6 +37,8 @@ func init() {
 		PostgresRestore: ensureChildTemplate(tmpl, "postgres_restore.sh.tmpl"),
 		TestTrap:        ensureChildTemplate(tmpl, "test_trap.sh.tmpl"),
 	}
+
+	// TODO allow to override the above templates with external sh.tmpl files
 }
 
 func ensureChildTemplate(template *template.Template, name string) *template.Template {

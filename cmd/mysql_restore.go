@@ -10,7 +10,7 @@ import (
 // mysqlRestoreCmd represents the restore command
 var mysqlRestoreCmd = &cobra.Command{
 	Use:   "restore",
-	Short: "Connects to the live mysql/mariadb container and creates a database restore",
+	Short: "Connects to the live mysql/mariadb container and restores the database dump",
 	// Long: `...`,
 	Run: func(_ *cobra.Command, _ []string) {
 		config := lib.LoadConfig()
