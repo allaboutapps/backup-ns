@@ -303,6 +303,7 @@ COPY --from=builder /app/bin/app /app/
 
 # default entrypoint is the new go binary already
 ENTRYPOINT ["/app/app"]
+CMD ["create"]
 
 # distroless disabled for now, until we switch to the full go based version (without the above bash reference implementation)
 # FROM bitnami/kubectl:1.28 as kubectl

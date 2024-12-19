@@ -11,7 +11,7 @@ import (
 // createCmd represents the create command
 var createCmd = &cobra.Command{
 	Use:   "create",
-	Short: "(DEFAULT) Creates an application-aware snapshot",
+	Short: "Creates an application-aware snapshot",
 	// 	Long: `...`,
 	Run: runCreate,
 }

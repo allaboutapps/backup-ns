@@ -10,7 +10,7 @@ import (
 // postgresRestoreCmd represents the dump command
 var postgresRestoreCmd = &cobra.Command{
 	Use:   "restore",
-	Short: "Connects to the live postgres container and restores the database dump",
+	Short: "Connects to the live postgres container and restores a preexisting database dump",
 	// Long: `...`,
 	Run: func(_ *cobra.Command, _ []string) {
 		config := lib.LoadConfig()
