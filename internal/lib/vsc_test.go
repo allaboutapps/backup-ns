@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/allaboutapps/backup-ns/internal/lib"
 	"github.com/allaboutapps/backup-ns/internal/test"
@@ -21,7 +22,7 @@ func createTestVS(t *testing.T) (string /* namespace*/, string /* vsName */) {
 		RetainDays: 0,
 	}
 
-	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)
+	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig, time.Now())
 	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
 
 	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)

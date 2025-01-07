@@ -70,7 +70,7 @@ func GenerateVSName(vsNameTemplate string, pvcName string, vsRand string) (strin
 	return buf.String(), nil
 }
 
-func GenerateVSLabels(namespace, pvcName string, config LabelVSConfig) map[string]string {
+func GenerateVSLabels(namespace, pvcName string, config LabelVSConfig, now time.Time) map[string]string {
 	labels := map[string]string{
 		"backup-ns.sh/pvc":  pvcName,
 		"backup-ns.sh/type": config.Type,
@@ -79,13 +79,13 @@ func GenerateVSLabels(namespace, pvcName string, config LabelVSConfig) map[strin
 		labels["backup-ns.sh/pod"] = config.Pod
 	}
 	if config.Retain == "daily_weekly_monthly" {
-		now := time.Now()
+		now := now
 		labels["backup-ns.sh/retain"] = "daily_weekly_monthly"
 
 		dailyLabel := now.Format("2006-01-02")
 
-		_, week := time.Now().ISOWeek()
-		weeklyLabel := now.Format("2006-") + fmt.Sprintf("w%02d", week)
+		_, week := now.ISOWeek()
+		weeklyLabel := fmt.Sprintf("w%02d", week)
 		monthlyLabel := now.Format("2006-01")
 
 		if !volumeSnapshotWithLabelValueExists(namespace, "backup-ns.sh/daily", dailyLabel) {
@@ -98,7 +98,7 @@ func GenerateVSLabels(namespace, pvcName string, config LabelVSConfig) map[strin
 			labels["backup-ns.sh/monthly"] = monthlyLabel
 		}
 	} else if config.Retain == "days" {
-		deleteAfter := time.Now().AddDate(0, 0, config.RetainDays).Format("2006-01-02")
+		deleteAfter := now.AddDate(0, 0, config.RetainDays).Format("2006-01-02")
 		labels["backup-ns.sh/retain"] = "days"
 		labels["backup-ns.sh/retain-days"] = strconv.Itoa(config.RetainDays)
 		labels["backup-ns.sh/delete-after"] = deleteAfter
@@ -296,8 +296,13 @@ func CreateVolumeSnapshot(namespace string, dryRun bool, vsName string, vsObject
 	return nil
 }
 
-func deleteVolumeSnapshot(namespace, volumeSnapshotName string) error {
-	deleteCmd := exec.Command("kubectl", "delete", "volumesnapshot", volumeSnapshotName, "-n", namespace)
+func deleteVolumeSnapshot(namespace, volumeSnapshotName string, wait bool) error {
+	args := []string{"delete", "volumesnapshot", volumeSnapshotName, "-n", namespace}
+	if !wait {
+		args = append(args, "--wait=false")
+	}
+
+	deleteCmd := exec.Command("kubectl", args...)
 	output, err := deleteCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to delete VolumeSnapshot: %w, output: %s", err, output)
@@ -309,7 +314,7 @@ func deleteVolumeSnapshot(namespace, volumeSnapshotName string) error {
 // Delete a VolumeSnapshot, its associated VolumeSnapshotContent and the underlying storage!
 // This is a destructive operation and should be used with caution!
 // This function will set the deletionPolicy of the VolumeSnapshotContent to "Delete" before deleting the VolumeSnapshot, thus ensuring the underlying storage is also deleted.
-func PruneVolumeSnapshot(namespace, volumeSnapshotName string) error {
+func PruneVolumeSnapshot(namespace, volumeSnapshotName string, wait bool) error {
 	// Get the VolumeSnapshotContent name
 	vscName, err := GetVolumeSnapshotContentName(namespace, volumeSnapshotName)
 	if err != nil {
@@ -322,7 +327,7 @@ func PruneVolumeSnapshot(namespace, volumeSnapshotName string) error {
 	}
 
 	// Delete the VolumeSnapshot
-	if err := deleteVolumeSnapshot(namespace, volumeSnapshotName); err != nil {
+	if err := deleteVolumeSnapshot(namespace, volumeSnapshotName, wait); err != nil {
 		return err
 	}
 

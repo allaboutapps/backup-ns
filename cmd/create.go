@@ -78,7 +78,7 @@ func runCreate(_ *cobra.Command, _ []string) {
 		runMySQLDump(config)
 	}
 
-	vsLabels := lib.GenerateVSLabels(config.Namespace, config.PVCName, config.LabelVS)
+	vsLabels := lib.GenerateVSLabels(config.Namespace, config.PVCName, config.LabelVS, time.Now())
 	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
 
 	vsObject := lib.GenerateVSObject(config.Namespace, config.VSClassName, config.PVCName, vsName, vsLabels, vsAnnotations)

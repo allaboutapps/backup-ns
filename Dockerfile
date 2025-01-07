@@ -1,6 +1,5 @@
-# which kubectl version to install (should be in sync with the kubernetes version used by GKE)
 # https://hub.docker.com/r/bitnami/kubectl/tags
-FROM bitnami/kubectl:1.28 as kubectl
+FROM bitnami/kubectl:1.29 as kubectl
 
 ### -----------------------
 # --- Stage: development
@@ -235,8 +234,9 @@ ENV PATH $PATH:$KREW_ROOT/bin
 # -> https://github.com/stern/stern
 # -> https://github.com/ahmetb/kubectx
 # -> https://github.com/patrickdappollonio/kubectl-slice
+# -> https://github.com/majodev/kubectl-envx
 # hack: we chown to $USERNAME to avoid permission issues when running the container
-RUN kubectl krew install stern ctx ns slice \
+RUN kubectl krew install stern ctx ns slice envx \
     && chown -R $USERNAME $KREW_ROOT
 
 # typical k8s aliases/completions and other .bashrc modifications

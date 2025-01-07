@@ -1,0 +1,8 @@
+{
+	"backup-ns.sh/delete-after": "2022-06-20",
+	"backup-ns.sh/pod": "gotest",
+	"backup-ns.sh/pvc": "data",
+	"backup-ns.sh/retain": "days",
+	"backup-ns.sh/retain-days": "30",
+	"backup-ns.sh/type": "cronjob"
+}

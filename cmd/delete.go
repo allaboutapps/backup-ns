@@ -40,7 +40,7 @@ func runDelete(_ *cobra.Command, args []string) {
 
 	log.Printf("Using namespace '%s'.\n", namespace)
 
-	if err := lib.PruneVolumeSnapshot(namespace, volumeSnapshotName); err != nil {
+	if err := lib.PruneVolumeSnapshot(namespace, volumeSnapshotName, true); err != nil {
 		log.Fatalf("Error deleting VolumeSnapshot: %v\n", err)
 	}
 

@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/allaboutapps/backup-ns/internal/lib"
 	"github.com/allaboutapps/backup-ns/internal/test"
@@ -53,7 +54,7 @@ func TestDumpAndRestorePostgres(t *testing.T) {
 		t.Fatal("backup Postgres failed: ", err)
 	}
 
-	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)
+	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig, time.Now())
 	vsAnnotations := lib.GenerateVSAnnotations(map[string]string{
 		"BAK_NAMESPACE":                 namespace,
 		"BAK_DB_POSTGRES":               "true",

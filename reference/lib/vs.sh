@@ -35,7 +35,7 @@ backup-ns.sh/pod: \"${pod}\""
 # The following labels are used:
 #    backup-ns.sh/retain: "daily_weekly_monthly"
 #    backup-ns.sh/monthly: e.g. "2024-04"
-#    backup-ns.sh/weekly: e.g. "2024-w15" # ISO: Monday as first day of week, see https://unix.stackexchange.com/questions/282609/how-to-use-the-date-command-to-display-week-number-of-the-year
+#    backup-ns.sh/weekly: e.g. "w15" # ISO: Monday as first day of week, see https://unix.stackexchange.com/questions/282609/how-to-use-the-date-command-to-display-week-number-of-the-year
 #    backup-ns.sh/daily: e.g. "2024-04-11"
 #### #    backup-ns.sh/hourly: e.g. "2024-04-0900" # disabled for now, as it is not really useful for most use-cases
 # 
@@ -53,7 +53,7 @@ vs_get_retain_labels_daily_weekly_monthly() {
     # hourly_label=$(date +"%Y-%m-%d-%H00")
 
     local daily_label; daily_label=$(date +"%Y-%m-%d")
-    local weekly_label; weekly_label=$(date +"%Y-w%0V")
+    local weekly_label; weekly_label=$(date +"w%0V")
     local monthly_label; monthly_label=$(date +"%Y-%m")
 
     local labels=""

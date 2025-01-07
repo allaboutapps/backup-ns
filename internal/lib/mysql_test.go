@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/allaboutapps/backup-ns/internal/lib"
 )
@@ -53,7 +54,7 @@ func TestDumpAndRestoreMySQL(t *testing.T) {
 		t.Fatal("backup MySQL failed: ", err)
 	}
 
-	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig)
+	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig, time.Now())
 	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
 
 	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)

@@ -172,7 +172,7 @@ kubectl label vs/<vs> "backup-ns.sh/monthly"-
 
 # Add a specific label daily/weekly/monthly
 kubectl label vs/<vs> "backup-ns.sh/daily"="YYYY-MM-DD"
-kubectl label vs/<vs> "backup-ns.sh/weekly"="YYYY-w04"
+kubectl label vs/<vs> "backup-ns.sh/weekly"="w04"
 kubectl label vs/<vs> "backup-ns.sh/monthly"="YYYY-MM"
 
 # Add a specific deleteAfter label (the pruner will delete the vs after the specified date)!

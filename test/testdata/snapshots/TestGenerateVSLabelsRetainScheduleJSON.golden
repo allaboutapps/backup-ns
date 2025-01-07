@@ -1,0 +1,9 @@
+{
+	"backup-ns.sh/daily": "2022-05-21",
+	"backup-ns.sh/monthly": "2022-05",
+	"backup-ns.sh/pod": "gotest",
+	"backup-ns.sh/pvc": "data",
+	"backup-ns.sh/retain": "daily_weekly_monthly",
+	"backup-ns.sh/type": "cronjob",
+	"backup-ns.sh/weekly": "w20"
+}
