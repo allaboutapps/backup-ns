@@ -41,12 +41,12 @@ helm:
 
 .PHONY: go-build
 go-build: ##- (opt) Runs go build.
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/app-linux-arm64
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/app-darwin-arm64
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/app-darwin-amd64
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/backup-ns-linux-arm64
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/backup-ns-linux-amd64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/backup-ns-darwin-arm64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/backup-ns-darwin-amd64
 
-	CGO_ENABLED=0 go build -o bin/app
+	CGO_ENABLED=0 go build -o bin/backup-ns
 
 # https://github.com/gotestyourself/gotestsum#format 
 # w/o cache https://github.com/golang/go/issues/24573 - see "go help testflag"
@@ -122,16 +122,16 @@ tidy: ##- (opt) Tidy our go.sum file.
 # Got license issues with some dependencies? Provide a custom lichen --config
 # see https://github.com/uw-labs/lichen#config 
 .PHONY: get-licenses
-get-licenses: ##- Prints licenses of embedded modules in the compiled bin/app.
-	lichen bin/app
+get-licenses: ##- Prints licenses of embedded modules in the compiled bin/backup-ns.
+	lichen bin/backup-ns
 
 .PHONY: get-embedded-modules
-get-embedded-modules: ##- Prints embedded modules in the compiled bin/app.
-	go version -m -v bin/app
+get-embedded-modules: ##- Prints embedded modules in the compiled bin/backup-ns.
+	go version -m -v bin/backup-ns
 
 .PHONY: get-embedded-modules-count
-get-embedded-modules-count: ##- (opt) Prints count of embedded modules in the compiled bin/app.
-	go version -m -v bin/app | grep $$'\tdep' | wc -l
+get-embedded-modules-count: ##- (opt) Prints count of embedded modules in the compiled bin/backup-ns.
+	go version -m -v bin/backup-ns | grep $$'\tdep' | wc -l
 
 ### -----------------------
 # --- Helpers

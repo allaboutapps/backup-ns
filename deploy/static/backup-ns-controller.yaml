@@ -83,7 +83,9 @@ spec:
           containers:
           - image: # ghcr.io/allaboutapps/backup-ns:<tag>
             name: sync-metadata-to-vsc
-            command: ["/app/sync-metadata-to-vsc.sh"]
+            command: 
+              - /app/backup-ns
+              - syncMetadataToVsc
             volumeMounts:
             - name: timezone
               mountPath: /etc/localtime

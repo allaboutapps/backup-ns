@@ -283,26 +283,25 @@ RUN make go-build
 # --- debian:buster-slim https://hub.docker.com/_/debian (if you need apt-get).
 ### -----------------------
 
-# which kubectl version to install (optimally this is in sync with the k8s version in your cluster)
 FROM kubectl as app
 COPY --from=builder /usr/bin/jq /usr/bin/jq
 WORKDIR /app
 
-# old bash reference implementation
-COPY --from=builder --chmod=0777 /app/reference/backup-ns.sh /app/backup-ns.sh
-COPY --from=builder --chmod=0777 /app/reference/sync-metadata-to-vsc.sh /app/sync-metadata-to-vsc.sh
+# bash reference implementation, we still use retain.sh and mark-and-delete.sh
+COPY --from=builder /app/reference/lib /app/lib
+# COPY --from=builder --chmod=0777 /app/reference/backup-ns.sh /app/backup-ns.sh
+# COPY --from=builder --chmod=0777 /app/reference/sync-metadata-to-vsc.sh /app/sync-metadata-to-vsc.sh
 COPY --from=builder --chmod=0777 /app/reference/retain.sh /app/retain.sh
 COPY --from=builder --chmod=0777 /app/reference/mark-and-delete.sh /app/mark-and-delete.sh
-COPY --from=builder /app/reference/lib /app/lib
 
 # sanity check all the required bash/cli tools are installed in the image
 RUN bash -c "source /app/lib/utils.sh && utils_check_host_requirements true true"
 
 # new go binary
-COPY --from=builder /app/bin/app /app/
+COPY --from=builder /app/bin/backup-ns /app/
 
 # default entrypoint is the new go binary already
-ENTRYPOINT ["/app/app"]
+ENTRYPOINT ["/app/backup-ns"]
 CMD ["create"]
 
 # distroless disabled for now, until we switch to the full go based version (without the above bash reference implementation)
@@ -315,11 +314,11 @@ CMD ["create"]
 
 # # https://hub.docker.com/r/bitnami/kubectl/tags
 # COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
-# COPY --from=builder /app/bin/app /app/
+# COPY --from=builder /app/bin/backup-ns /app/
 
 # WORKDIR /app
 
 # # Must comply to vector form
 # # https://github.com/GoogleContainerTools/distroless#entrypoints
-# ENTRYPOINT ["/app/app"]
-# # CMD ["arg"]
+# ENTRYPOINT ["/app/backup-ns"]
+# CMD ["create"]
