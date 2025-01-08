@@ -5,6 +5,14 @@
   - [Usage](#usage)
     - [Install via static manifests](#install-via-static-manifests)
     - [Install via helm](#install-via-helm)
+    - [Adhoc operations](#adhoc-operations)
+      - [Create a new adhoc backup job via the `create-adhoc-backup.sh` script](#create-a-new-adhoc-backup-job-via-the-create-adhoc-backupsh-script)
+      - [Adhoc backups and dumps via a local `backup-ns` cli and `kubectl envx`](#adhoc-backups-and-dumps-via-a-local-backup-ns-cli-and-kubectl-envx)
+        - [Trigger an adhoc backup job](#trigger-an-adhoc-backup-job)
+        - [Dump the postgres database on the live filesystem](#dump-the-postgres-database-on-the-live-filesystem)
+        - [Restore the current dump of the postgres database on the live filesystem](#restore-the-current-dump-of-the-postgres-database-on-the-live-filesystem)
+        - [Dump the mysql/mariadb database on the live filesystem](#dump-the-mysqlmariadb-database-on-the-live-filesystem)
+        - [Restore the current dump of the mysql/mariadb database on the live filesystem](#restore-the-current-dump-of-the-mysqlmariadb-database-on-the-live-filesystem)
     - [Labels](#labels)
   - [Concepts](#concepts)
     - [Structure](#structure)
@@ -50,6 +58,157 @@ Only the namespace-specifc components are currently available via helm.
 The global controller components must be deployed via static manifests.
 
 See https://code.allaboutapps.at/backup-ns/ for the latest helm chart and [`charts/backup-ns/values.yaml`](charts/backup-ns/values.yaml) for the default values.
+
+### Adhoc operations
+
+Sometimes it is necessary to manually create a volume snapshot or to trigger database dumps and restores. This can be done by:
+* by using the namespaced `backup` cronjob as template for creating a new k8s adhoc backup job and overwriting the new `ENV` vars or
+* running the `backup-ns` cli tool locally to create a new adhoc backup job, also overwriting the `ENV` vars (based on the `backup` cronjob).
+
+Here are some sample operations for accomblish that.
+
+#### Create a new adhoc backup job via the `create-adhoc-backup.sh` script
+
+```bash
+# Install the create-adhoc-backup.sh bash script locally
+# See https://github.com/allaboutapps/backup-ns/releases for cli installation instructions.
+
+# Run the create adhoc backup script. This will assume that there is a `backup` cronjob in the kubectl context namespace that is used as a base.
+./create-adhoc-backup.sh
+# Creating adhoc backup in ns=go-starter-dev...
+# Prepared backup command:
+# kubectl create job --from=cronjob.batch/backup "backup-adhoc-2025-01-08-155614" -o yaml --dry-run=client -n "go-starter-dev"  | yq eval '.spec.template.spec.containers[0].env += [{"name": "BAK_LABEL_VS_RETAIN", "value": "days"}]' - | yq eval '.spec.template.spec.containers[0].env += [{"name": "BAK_LABEL_VS_TYPE", "value": "adhoc"}]' - | kubectl apply -f -
+# Ensuring there is no other backup job running within ns=go-starter-dev...
+# Creating job/backup-adhoc-2025-01-08-155614 for ns=go-starter-dev...
+# job.batch/backup-adhoc-2025-01-08-155614 created
+# Follow logs with:
+#   kubectl logs -n go-starter-dev -f job/backup-adhoc-2025-01-08-155614
+# Waiting for backup job/backup-adhoc-2025-01-08-155614 to complete for ns=go-starter-dev...
+# job.batch/backup-adhoc-2025-01-08-155614 condition met
+
+# List all snapshots in this namespace via:
+# kubectl -n go-starter-dev get vs -lbackup-ns.sh/retain -Lbackup-ns.sh/type,backup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after
+
+# Adhoc backups are only kept for 30days by default, you can delete this auto-retention flag manually by running:
+# kubectl -n go-starter-dev label vs/<snapshot-name> backup-ns.sh/retain- backup-ns.sh/delete-after-
+```
+
+#### Adhoc backups and dumps via a local `backup-ns` cli and `kubectl envx`
+
+This requires the [`kubectl envx`](https://github.com/majodev/kubectl-envx) plugin to be installed and the `backup-ns` binary to be available locally (so it can interact with `kubectl` directly). 
+
+```bash
+# Install the backup-ns binary locally
+# See https://github.com/allaboutapps/backup-ns/releases for cli installation instructions.
+
+# Install the kubectl envx plugin
+kubectl krew envx install
+
+# Show the current ENV vars of the backup-ns cronjob
+kubectl envx cronjob/backup
+# BAK_DB_POSTGRES=true
+# BAK_FLOCK=true
+# BAK_LABEL_VS_RETAIN=daily_weekly_monthly
+# BAK_LABEL_VS_TYPE=cronjob
+# BAK_NAMESPACE=go-starter-dev
+# BAK_LABEL_VS_POD=backup
+# TZ=Europe/Vienna
+```
+
+##### Trigger an adhoc backup job
+
+```bash
+# same ENV vars as the backup cronjob, but disabling flock and changing the type to adhoc and retain to days
+kubectl envx cronjob/backup BAK_LABEL_VS_TYPE=adhoc BAK_FLOCK=false BAK_LABEL_VS_RETAIN=days -- ./backup-ns create
+# 2025/01/08 16:43:08 VS Name: data-2025-01-08-164308-dcdkes
+# 2025/01/08 16:43:08 Checking if PVC 'data' exists in namespace 'go-starter-dev'...
+# 2025/01/08 16:43:08 PVC 'data' is available in namespace 'go-starter-dev'.
+# 2025/01/08 16:43:08 Checking if resource 'deployment/app-base' exists in namespace 'go-starter-dev'...
+# 2025/01/08 16:43:09 Resource 'deployment/app-base' is available in namespace 'go-starter-dev'.
+# 2025/01/08 16:43:09 Checking if Postgres is available in namespace 'go-starter-dev'...
+# 2025/01/08 16:43:10 Checking free space on /var/lib/postgresql/data in namespace 'go-starter-dev'...
+# 2025/01/08 16:43:11 Free space check succeeded. Used: 2%, Threshold: 90%.
+# 2025/01/08 16:43:14 Templated script 'postgres_dump.sh.tmpl' completed.
+# 2025/01/08 16:43:14 Finished postgres dump in namespace='go-starter-dev'!
+# 2025/01/08 16:43:14 Creating VolumeSnapshot 'data-2025-01-08-164308-dcdkes' in namespace 'go-starter-dev'...
+# 2025/01/08 16:43:15 Waiting for VolumeSnapshot 'data-2025-01-08-164308-dcdkes' to be ready (timeout: 15m)...
+# 2025/01/08 16:43:41 Finished backup vs_name='data-2025-01-08-164308-dcdkes' in namespace='go-starter-dev'!
+```
+
+##### Dump the postgres database on the live filesystem
+
+```bash
+kubectl envx cronjob/backup -- ./backup-ns postgres dump
+# 2025/01/08 16:49:30 Checking if resource 'deployment/app-base' exists in namespace 'go-starter-dev'...
+# 2025/01/08 16:49:31 Resource 'deployment/app-base' is available in namespace 'go-starter-dev'. Output:
+# 2025/01/08 16:49:31 Checking if Postgres is available in namespace 'go-starter-dev'...
+# 2025/01/08 16:49:32 Templated script 'postgres_check.sh.tmpl' completed. 
+# 2025/01/08 16:49:32 Checking free space on /var/lib/postgresql/data in namespace 'go-starter-dev'...
+# 2025/01/08 16:49:33 Free space check succeeded. Used: 2%, Threshold: 90%. Output:
+# 2025/01/08 16:49:33 Backing up Postgres database '${POSTGRES_DB}' in namespace 'go-starter-dev'...
+# 2025/01/08 16:49:35 Templated script 'postgres_dump.sh.tmpl' completed. Output:
+# + trap 'exit_code=$?; [ $exit_code -ne 0 ] && echo "TRAP!" && rm -f /var/lib/postgresql/data/dump.sql.gz && df -h /var/lib/postgresql/data; exit $exit_code' EXIT
+# + trap 'trap - SIGTERM && kill -- -$$' SIGTERM SIGPIPE
+# + pg_dump --username=dbuser --format=p --clean --if-exists go-starter-dev --host 127.0.0.1 --port 5432
+# + gzip -c
+# + ls -lha /var/lib/postgresql/data/dump.sql.gz
+# + '[' -s /var/lib/postgresql/data/dump.sql.gz ']'
+# -rw-r--r--    1 postgres root       21.3K Jan  8 15:49 /var/lib/postgresql/data/dump.sql.gz
+# + df -h /var/lib/postgresql/data
+# Filesystem                Size      Used Available Use% Mounted on
+# /dev/sdc                  9.7G    177.4M      9.6G   2% /var/lib/postgresql/data
+# + exit_code=0
+# + '[' 0 -ne 0 ']'
+# + exit 0
+# 2025/01/08 16:49:35 Finished postgres dump in namespace='go-starter-dev'!
+```
+
+##### Restore the current dump of the postgres database on the live filesystem
+
+```bash
+kubectl envx cronjob/backup -- ./backup-ns postgres restore
+# 2025/01/08 16:53:58 Checking if resource 'deployment/app-base' exists in namespace 'go-starter-dev'...
+# 2025/01/08 16:53:58 Resource 'deployment/app-base' is available in namespace 'go-starter-dev'. Output:
+# 2025/01/08 16:53:58 Checking if Postgres is available in namespace 'go-starter-dev'...
+# 2025/01/08 16:53:59 Templated script 'postgres_check.sh.tmpl' completed. 
+# 2025/01/08 16:53:59 Restoring Postgres database '${POSTGRES_DB}' in namespace 'go-starter-dev'...
+# 2025/01/08 16:54:00 Templated script 'postgres_restore.sh.tmpl' completed. Output:
+# + '[' -s /var/lib/postgresql/data/dump.sql.gz ']'
+# + ls -lha /var/lib/postgresql/data/dump.sql.gz
+# -rw-r--r--    1 postgres root       21.3K Jan  8 15:49 /var/lib/postgresql/data/dump.sql.gz
+# + gzip -dc /var/lib/postgresql/data/dump.sql.gz
+# + psql --host 127.0.0.1 --port 5432 --username=dbuser go-starter-dev
+# SET
+# [...]
+# DROP INDEX
+# ALTER TABLE
+# DROP TABLE
+# DROP SEQUENCE
+# DROP TYPE
+# DROP EXTENSION
+# CREATE EXTENSION
+# COMMENT
+# CREATE TYPE
+# ALTER TYPE
+# CREATE TYPE
+# ALTER TYPE
+# SET
+# [...]
+# COPY 137
+# 2025/01/08 16:54:00 Finished postgres restore in namespace='go-starter-dev'!
+```
+
+##### Dump the mysql/mariadb database on the live filesystem
+
+```bash
+kubectl envx cronjob/backup -- ./backup-ns mysql dump
+```
+
+##### Restore the current dump of the mysql/mariadb database on the live filesystem
+
+```bash
+kubectl envx cronjob/backup -- ./backup-ns mysql restore
+```
 
 
 ### Labels

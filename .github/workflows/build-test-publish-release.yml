@@ -100,8 +100,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  release:
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+  release-chart:
+    if: startsWith(github.ref, 'refs/tags/v')
 
     needs:
       - build-test
@@ -124,3 +124,107 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           CR_SKIP_EXISTING: "true"
+
+
+  release-bins:
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    needs:
+      - build-test
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Build the Docker image with binaries
+        run: |
+          docker build --target builder --file Dockerfile --tag ${IMAGE_NAME}-builder:${GITHUB_SHA:8} .
+          docker create --name builder ${IMAGE_NAME}-builder:${GITHUB_SHA:8}
+          mkdir -p dist
+
+      - name: Extract binaries from container
+        run: |
+          for binary in backup-ns-linux-amd64 backup-ns-linux-arm64 backup-ns-darwin-amd64 backup-ns-darwin-arm64; do
+            docker cp builder:/app/bin/$binary dist/ || exit 1
+          done
+          cp LICENSE dist/
+
+      - name: Create release archives
+        run: |
+          cd dist
+          for file in backup-ns-*; do
+            tar czf "${file}.tar.gz" "$file" LICENSE
+          done
+
+      - name: Prepare script archive
+        run: |
+          cp create-adhoc-backup.sh dist/
+          chmod +x dist/create-adhoc-backup.sh
+          cd dist
+          tar czf "create-adhoc-backup.sh.tar.gz" create-adhoc-backup.sh LICENSE
+
+      - name: Upload release artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/backup-ns-linux-amd64.tar.gz
+            dist/backup-ns-linux-arm64.tar.gz
+            dist/backup-ns-darwin-amd64.tar.gz
+            dist/backup-ns-darwin-arm64.tar.gz
+            dist/create-adhoc-backup.sh.tar.gz
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## backup-ns ${{ github.ref_name }}
+
+            ### Docker image
+            ```bash
+            docker pull ghcr.io/allaboutapps/backup-ns:${{ github.ref_name }}
+            ```
+
+            ### Local Installation (Linux/amd64)
+            ```bash
+            curl -Lo backup-ns.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/backup-ns-linux-amd64.tar.gz
+            tar xzf backup-ns.tar.gz
+            chmod +x backup-ns-linux-amd64
+            sudo mv backup-ns-linux-amd64 /usr/local/bin/backup-ns
+            rm backup-ns.tar.gz
+            ```
+
+            ### Local Installation (macOS/arm64)
+            ```bash
+            curl -Lo backup-ns.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/backup-ns-darwin-arm64.tar.gz
+            tar xzf backup-ns.tar.gz
+            chmod +x backup-ns-darwin-arm64
+            sudo mv backup-ns-darwin-arm64 /usr/local/bin/backup-ns
+            rm backup-ns.tar.gz
+            ```
+
+            ### Adhoc backup script
+            ```bash
+            curl -Lo create-adhoc-backup.sh.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/create-adhoc-backup.sh.tar.gz
+            tar xzf create-adhoc-backup.sh.tar.gz
+            chmod +x create-adhoc-backup.sh
+            sudo mv create-adhoc-backup.sh /usr/local/bin/
+            rm create-adhoc-backup.sh.tar.gz
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stop container
+        if: always()
+        run: docker stop builder
+
+      - name: Cleanup
+        if: always()
+        run: docker rm builder

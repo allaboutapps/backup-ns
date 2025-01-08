@@ -1,20 +1,14 @@
 # Migration to v0.2.0
 
-The following commit introduced a change in how the value of the `backup-ns.sh/weekly` label is generated. e.g. the value of the label is now `w04` instead of `YYYY-w04` (where 04 is the current week number).
+- [Migration to v0.2.0](#migration-to-v020)
+  - [Migration Steps for the `backup-ns.sh/weekly` label](#migration-steps-for-the-backup-nsshweekly-label)
 
-```bash
-commit eb40485eb9261ec134dfa6e8d4ce709bed695304 (HEAD -> dev, origin/mr/work, origin/dev, github/mr/work, github/dev, mr/work)
-Author: Mario Ranftl
-Date:   Tue Jan 7 18:06:25 2025 +0100
+* `v0.2.0` introduces a change in how the value of the `backup-ns.sh/weekly` label is generated. e.g. the value of the label is now `w04` instead of `YYYY-w04` (where 04 is the current week number). 
+* `v0.2.0` places final binary from under `/app/backup-ns` (instead of `/app/app`), any references to it within your manifests must be updated.
 
-    adds envx, switch to backup-ns.sh/weekly label to w04 only (without YYYY), snap labels, simulate test label generation
-```
+## Migration Steps for the `backup-ns.sh/weekly` label
 
-This change is released as part of v0.2.0.
-
-## Migration Steps
-
-For the retention logic to properly work, it's necessary to update the value of the `backup-ns.sh/weekly` label for all existing snapshots. The following steps describe how to do this:
+For the retention logic to properly work, it's necessary to manually update the value of the `backup-ns.sh/weekly` label for all existing snapshots. The following steps describe how to do this:
 
 ```bash
 # List all snapshots with weekly label
