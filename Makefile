@@ -222,9 +222,9 @@ kind-fix-kubeconfig:
 
 .PHONY: kind-cluster-init-script
 kind-cluster-init-script:
-	docker-compose up --no-start
-	docker-compose start
-	docker-compose exec service bash test/init_kind.sh
+	docker compose up --no-start
+	docker compose start
+	docker compose exec service bash test/init_kind.sh
 
 .PHONY: kind-cluster-reset
 kind-cluster-reset:
