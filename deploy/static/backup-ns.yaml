@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-env
+  namespace: your-namespace
+data:
+  # BAK_DRY_RUN: "true"
+  # BAK_PVC_NAME: data
+  BAK_LABEL_VS_TYPE: cronjob
+  BAK_LABEL_VS_RETAIN: daily_weekly_monthly
+  BAK_FLOCK: "true"
+  # BAK_FLOCK_DIR: /mnt/host-backup-locks
+  ###### !!!!!!!! Set one of the following: BAK_DB_SKIP or BAK_DB_POSTGRES or BAK_DB_MYSQL !!!!!!!! ######
+  # BAK_DB_SKIP: "true" # no db in this namespace?!
+  # BAK_DB_POSTGRES: "true"
+  # BAK_DB_POSTGRES_EXEC_RESOURCE: deployment/app-base
+  # BAK_DB_POSTGRES_EXEC_CONTAINER: postgres
+  # BAK_DB_MYSQL: "true"
+  # BAK_DB_MYSQL_EXEC_RESOURCE: deployment/app-base # deployment/wordpress-base
+  # BAK_DB_MYSQL_EXEC_CONTAINER: mariadb # mysql
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-ns
+  namespace: your-namespace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backup-ns
+  namespace: your-namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: backup-ns
+subjects:
+  - kind: ServiceAccount
+    name: backup-ns
+    namespace: your-namespace
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup
+  namespace: your-namespace
+spec:
+  timeZone: "Europe/Vienna"
+  schedule: "32 0 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2 # retry three times.
+      activeDeadlineSeconds: 10800 # 3h max time before considered failed
+      template:
+        metadata:
+          labels:
+            app: backup
+        spec:
+          restartPolicy: Never # do not try to restart the container itself (full pod instead)
+          serviceAccountName: backup-ns
+          initContainers:
+            - name: init-permissions
+              image: busybox:1.26.2
+              command: ["sh", "-c", "chmod 777 /mnt/host-backup-locks"]
+              volumeMounts:
+                - name: host-backup-locks
+                  mountPath: /mnt/host-backup-locks
+          containers:
+            - image: # ghcr.io/allaboutapps/backup-ns:<tag>
+              imagePullPolicy: Always
+              name: backup
+              envFrom:
+                - configMapRef:
+                    name: backup-env
+              env:
+                - name: BAK_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: BAK_LABEL_VS_POD
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: TZ
+                  value: Europe/Vienna
+              volumeMounts:
+                - name: host-backup-locks
+                  mountPath: /mnt/host-backup-locks
+          volumes:
+            - name: host-backup-locks
+              hostPath:
+                path: /tmp/backup-ns-locks
+                type: DirectoryOrCreate # control parallelism from multiple k8s hosts (flock)

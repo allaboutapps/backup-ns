@@ -2,12 +2,17 @@
 
 - [backup-ns](#backup-ns)
   - [Introduction](#introduction)
-  - [Processes](#processes)
+  - [Usage](#usage)
+    - [Install via static manifests](#install-via-static-manifests)
+    - [Install via helm](#install-via-helm)
+    - [Labels](#labels)
+  - [Concepts](#concepts)
+    - [Structure](#structure)
+      - [Namespace-Specific](#namespace-specific)
+      - [Global Controller](#global-controller)
     - [Application-aware backup creation](#application-aware-backup-creation)
     - [Label retention process](#label-retention-process)
     - [Mark and delete process](#mark-and-delete-process)
-  - [Usage](#usage)
-    - [Labels](#labels)
   - [Development](#development)
     - [Development Setup](#development-setup)
     - [Releasing new versions](#releasing-new-versions)
@@ -18,22 +23,107 @@
 
 ## Introduction
 
-> This project is currently in an **alpha** state and only used internally at allaboutapps.  
-> Thus is **not ready for production use**! Expect **breaking changes**.
-
-This project extends Kubernetes CSI-based snapshots with application-aware (also called application-consistent) creation mechanisms. It is designed to be used in a multi-tenant cluster environments where namespaces are used to separate different customer applications. 
+This project combines Kubernetes CSI-based snapshots with application-aware (also called application-consistent) creation mechanisms. It is designed to be used in a multi-tenant cluster environments where namespaces are used to separate different customer applications/environments. 
 
 Current focus:
 * Simple cli util for backup and restore without the need for operators or custom resource definitions (CRDs).
 * Using the proper compatible `mysqldump` and `pg_dump` is crucial when doing dumps! By executing these dumps in the same pod as the database container, compatibility is guaranteed.
-* Stick to the primitives. Just use k8s `CronJobs` for daily backup and handle retention with labels. 
+* Stick to the primitives. Just use k8s `CronJobs` for daily backup and handle retention with labels (`backup-ns.sh/`). 
 * Control backup job concurrency on the node-level via flock.
 * Mark and sweep like handling, giving you time between marking the volume snapshot for deletion and actual deletion.
-* Low-dependency, only `kubectl` must be in the `PATH`.
+* Low-dependency, only requires `kubectl` to be in `PATH`.
 
-## Processes
+## Usage
 
-This section describes the various processes of the backup-ns tool.
+### Install via static manifests
+
+The project is split into two main manifest files:
+
+* [`deploy/static/backup-ns-controller.yaml`](deploy/static/backup-ns-controller.yaml) - Global controller components, the ClusterRole and CronJobs for retention and pruning.
+* [`deploy/static/backup-ns.yaml`](deploy/static/backup-ns.yaml) - Namespace-specific components, must be deployed in each namespace where you want to run the backup-ns operation.
+
+Download, modify and install the global controller components first (`kubectl apply -f backup-ns-controller.yaml`) and then modify and deploy as many namespace-specific manifests as you need (`kubectl apply -f backup-ns.yaml`).
+
+### Install via helm
+
+Only the namespace-specifc components are currently available via helm.  
+The global controller components must be deployed via static manifests.
+
+See https://code.allaboutapps.at/backup-ns/ for the latest helm chart and [`charts/backup-ns/values.yaml`](charts/backup-ns/values.yaml) for the default values.
+
+
+### Labels
+
+Here are some typical labels backup-ns currently uses for creating and retaining the volume snapshots and how to manipulate them manually:
+
+```bash
+# Remove a deleteAfter labeled vs (this prevents the backup-ns pruner from deleting the vs):
+kubectl label vs/<vs> "backup-ns.sh/delete-after"-
+
+# Remove a specific label for daily/weekly/monthly retention
+kubectl label vs/<vs> "backup-ns.sh/daily"-
+kubectl label vs/<vs> "backup-ns.sh/weekly"-
+kubectl label vs/<vs> "backup-ns.sh/monthly"-
+
+# Add a specific label daily/weekly/monthly
+kubectl label vs/<vs> "backup-ns.sh/daily"="YYYY-MM-DD"
+kubectl label vs/<vs> "backup-ns.sh/weekly"="w04"
+kubectl label vs/<vs> "backup-ns.sh/monthly"="YYYY-MM"
+
+# Add a specific deleteAfter label (the pruner will delete the vs after the specified date)!
+kubectl label vs/<vs> "backup-ns.sh/delete-after"="YYYY-MM-DD"
+```
+
+Here are some typical volume snapshot list commands based on that labels:
+
+```bash
+# List application-aware volume snapshots overview all namespaces
+kubectl get vs -lbackup-ns.sh/retain -Lbackup-ns.sh/type,backup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after --all-namespaces
+
+# Filter by daily, weekly, monthly:
+kubectl get vs -lbackup-ns.sh/retain,backup-ns.sh/daily -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly --all-namespaces
+kubectl get vs -lbackup-ns.sh/retain,backup-ns.sh/weekly -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly --all-namespaces
+kubectl get vs -lbackup-ns.sh/retain,backup-ns.sh/monthly -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly --all-namespaces
+
+# Filter for marked for deletion snapshots
+kubectl get vs --all-namespaces -l"backup-ns.sh/delete-after" -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after
+```
+
+## Concepts
+
+This section describes the structure and various processes of the backup-ns project.
+
+### Structure
+
+#### Namespace-Specific
+
+[`deploy/static/backup-ns.yaml`](deploy/static/backup-ns.yaml)
+
+- **ConfigMap** `backup-env`: Configuration for backup behavior
+  - Controls database type (MySQL/PostgreSQL)
+  - Backup retention settings
+  - Lock mechanism configuration
+- **ServiceAccount** `backup-ns`: For running backup jobs
+- **RoleBinding**: Links to cluster-wide permissions
+- **CronJob** `backup`:
+  - Daily backup execution
+  - Uses flock for cross-node concurrency control
+  - Performs database dumps and volume snapshots
+
+#### Global Controller
+
+[`deploy/static/backup-ns-controller.yaml`](deploy/static/backup-ns-controller.yaml)
+
+- Runs in a dedicated **namespace** `backup-ns`, controls retention and pruning for all namespaces with volume snapshots with `backup-ns.sh/` labels.
+- **ClusterRole** `backup-ns`: Defines permissions for namespace backups
+  - Pod/PVC access
+  - Volume snapshot operations
+- **ClusterRole** `backup-ns-controller`: Global snapshot management (pruning, retention)
+- **ServiceAccount** `backup-ns-controller`
+- **ClusterRoleBinding**: Global snapshot management permissions
+- **CronJobs**:
+  1. `sync-volume-snapshot-labels`: Runs daily to sync metadata
+  2. `pruner`: Handles snapshot retention and cleanup
 
 ### Application-aware backup creation
 
@@ -153,32 +243,6 @@ sequenceDiagram
     end
 ```
 
-## Usage
-
-> TODO Helm chart repo within `deploy/backup-ns` -> gh-pages and static deployment
-
-### Labels
-
-Here are some typical labels backup-ns currently uses and how to manipulate them manually:
-
-```bash
-# Remove a deleteAfter labeled vs (this prevents the backup-ns pruner from deleting the vs):
-kubectl label vs/<vs> "backup-ns.sh/delete-after"-
-
-# Remove a specific label for daily/weekly/monthly retention
-kubectl label vs/<vs> "backup-ns.sh/daily"-
-kubectl label vs/<vs> "backup-ns.sh/weekly"-
-kubectl label vs/<vs> "backup-ns.sh/monthly"-
-
-# Add a specific label daily/weekly/monthly
-kubectl label vs/<vs> "backup-ns.sh/daily"="YYYY-MM-DD"
-kubectl label vs/<vs> "backup-ns.sh/weekly"="w04"
-kubectl label vs/<vs> "backup-ns.sh/monthly"="YYYY-MM"
-
-# Add a specific deleteAfter label (the pruner will delete the vs after the specified date)!
-kubectl label vs/<vs> "backup-ns.sh/delete-after"="YYYY-MM-DD"
-```
-
 ## Development
 
 ### Development Setup
@@ -252,7 +316,7 @@ To deploy a new app and chart version:
 
 ## License
 
-[MIT](LICENSE) © 2024 aaa – all about apps GmbH | Mario Ranftl and the backup-ns project contributors
+[MIT](LICENSE) © 2024-2025 aaa – all about apps GmbH | Mario Ranftl and the backup-ns project contributors
 
 ## Alternatives
 

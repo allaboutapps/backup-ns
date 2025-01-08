@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backup-ns
+  labels:
+    name: backup-ns
+---
+# This ClusterRole is bound via namespace isolated RoleBindings + ServiceAccounts in each consuming namespaces.
+# The main usecase of these service-accounts is allow perform streaming data (via k exec) from different pods (e.g. a SQL dump).
+#
+# Note: A RoleBinding can also reference a ClusterRole to grant the permissions defined in that ClusterRole to resources inside the RoleBinding's namespace.
+# This kind of reference lets you define a set of common roles across your cluster, then reuse them within multiple namespaces.
+# https://kubernetes.io/docs/reference/access-authn-authz/rbac/#rolebinding-example
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backup-ns
+rules:
+- apiGroups: [""]
+  resources: ["pods", "persistentvolumeclaims"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["get", "create"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshots"]
+  verbs: ["get", "create", "list", "watch"]
+---
+# This ClusterRole is used by the global delete marker and pruner job
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backup-ns-controller
+rules:
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshots", "volumesnapshotcontents"]
+  verbs: ["get", "list", "patch", "delete", "watch"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-ns-controller
+  namespace: backup-ns
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backup-ns-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: backup-ns-controller
+subjects:
+  - kind: ServiceAccount
+    name: backup-ns-controller
+    namespace: backup-ns
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sync-volume-snapshot-labels
+  namespace: backup-ns
+spec:
+  timeZone: 'Europe/Vienna'
+  schedule: "53 06 * * *" # run this after you are sure all namespaced backup-ns jobs are finished.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0 # do not retry.
+      activeDeadlineSeconds: 3600 # 1h max time before considered failed
+      template:
+        metadata:
+          labels:
+            app: sync-volume-snapshot-labels
+        spec:
+          restartPolicy: Never # do not try to restart the container itself (full pod instead)
+          serviceAccountName: backup-ns-controller
+          containers:
+          - image: # ghcr.io/allaboutapps/backup-ns:<tag>
+            name: sync-metadata-to-vsc
+            command: ["/app/sync-metadata-to-vsc.sh"]
+            volumeMounts:
+            - name: timezone
+              mountPath: /etc/localtime
+          volumes:
+          - name: timezone
+            hostPath:
+              path: /usr/share/zoneinfo/Europe/Vienna
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pruner
+  namespace: backup-ns
+spec:
+  timeZone: 'Europe/Vienna'
+  schedule: "36 11 * * *" # run this daily after backups were created and the sync-volume-snapshot-labels job has finished
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 0 # do not retry.
+      activeDeadlineSeconds: 3600 # 1h max time before considered failed
+      template:
+        metadata:
+          labels:
+            app: pruner
+        spec:
+          restartPolicy: Never # do not try to restart the container itself (full pod instead)
+          serviceAccountName: backup-ns-controller
+          containers:
+          - image: # ghcr.io/allaboutapps/backup-ns:<tag>
+            name: pruner
+            command:
+              - "/bin/bash"
+              - "-c"
+              - "/app/retain.sh && /app/mark-and-delete.sh"
+            volumeMounts:
+            - name: timezone
+              mountPath: /etc/localtime
+          volumes:
+          - name: timezone
+            hostPath:
+              path: /usr/share/zoneinfo/Europe/Vienna
