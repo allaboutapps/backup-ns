@@ -263,6 +263,22 @@ kubectl label vs/<vs> "backup-ns.sh/delete-after"="YYYY-MM-DD"
 Here are some typical volume snapshot list commands based on that labels:
 
 ```bash
+# List application-aware volume snapshots overview in the current namespace
+backup-ns list
+
+# All namespaces
+backup-ns list -A
+
+# Filter by daily, weekly, monthly and adhoc:
+backup-ns list --daily
+backup-ns list --weekly
+backup-ns list --monthly
+backup-ns list --adhoc
+
+# Under the hook the above commands directly translate to the following kubectl commands.
+# It's all based on labels.
+# Feel free to use kubectl directly for more advanced queries.
+
 # List application-aware volume snapshots overview all namespaces
 kubectl get vs -lbackup-ns.sh/retain -Lbackup-ns.sh/type,backup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after --all-namespaces
 

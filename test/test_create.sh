@@ -22,3 +22,5 @@ BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment
 BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment/mysql backup-ns mysql downloadDump -o "$SCRIPT_DIR/mysql-test.tar.gz"
 rm -f "$SCRIPT_DIR/mysql-test.tar.gz"
 BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment/mysql backup-ns mysql restore -f
+
+backup-ns list -A
