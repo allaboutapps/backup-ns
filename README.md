@@ -119,7 +119,7 @@ kubectl envx cronjob/backup
 
 ```bash
 # same ENV vars as the backup cronjob, but disabling flock and changing the type to adhoc and retain to days
-kubectl envx cronjob/backup BAK_LABEL_VS_TYPE=adhoc BAK_FLOCK=false BAK_LABEL_VS_RETAIN=days -- ./backup-ns create
+kubectl envx cronjob/backup BAK_LABEL_VS_TYPE=adhoc BAK_FLOCK=false BAK_LABEL_VS_RETAIN=days -- backup-ns create
 # 2025/01/08 16:43:08 VS Name: data-2025-01-08-164308-dcdkes
 # 2025/01/08 16:43:08 Checking if PVC 'data' exists in namespace 'go-starter-dev'...
 # 2025/01/08 16:43:08 PVC 'data' is available in namespace 'go-starter-dev'.
@@ -138,7 +138,7 @@ kubectl envx cronjob/backup BAK_LABEL_VS_TYPE=adhoc BAK_FLOCK=false BAK_LABEL_VS
 ##### Dump the postgres database on the live filesystem
 
 ```bash
-kubectl envx cronjob/backup -- ./backup-ns postgres dump
+kubectl envx cronjob/backup -- backup-ns postgres dump
 # 2025/01/08 16:49:30 Checking if resource 'deployment/app-base' exists in namespace 'go-starter-dev'...
 # 2025/01/08 16:49:31 Resource 'deployment/app-base' is available in namespace 'go-starter-dev'. Output:
 # 2025/01/08 16:49:31 Checking if Postgres is available in namespace 'go-starter-dev'...
@@ -166,7 +166,7 @@ kubectl envx cronjob/backup -- ./backup-ns postgres dump
 ##### Restore the current dump of the postgres database on the live filesystem
 
 ```bash
-kubectl envx cronjob/backup -- ./backup-ns postgres restore
+kubectl envx cronjob/backup -- backup-ns postgres restore
 # 2025/01/08 16:53:58 Checking if resource 'deployment/app-base' exists in namespace 'go-starter-dev'...
 # 2025/01/08 16:53:58 Resource 'deployment/app-base' is available in namespace 'go-starter-dev'. Output:
 # 2025/01/08 16:53:58 Checking if Postgres is available in namespace 'go-starter-dev'...
@@ -201,13 +201,13 @@ kubectl envx cronjob/backup -- ./backup-ns postgres restore
 ##### Dump the mysql/mariadb database on the live filesystem
 
 ```bash
-kubectl envx cronjob/backup -- ./backup-ns mysql dump
+kubectl envx cronjob/backup -- backup-ns mysql dump
 ```
 
 ##### Restore the current dump of the mysql/mariadb database on the live filesystem
 
 ```bash
-kubectl envx cronjob/backup -- ./backup-ns mysql restore
+kubectl envx cronjob/backup -- backup-ns mysql restore
 ```
 
 
