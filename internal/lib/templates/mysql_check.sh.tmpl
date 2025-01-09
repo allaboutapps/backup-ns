@@ -18,3 +18,6 @@ mysql \
     --default-character-set={{.DefaultCharacterSet}} \
     {{.DB}} \
     -e "SELECT 1;" >/dev/null
+
+# print last dump if available
+ls -lha "{{.DumpFile}}" || true

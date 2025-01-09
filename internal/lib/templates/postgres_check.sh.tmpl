@@ -12,3 +12,6 @@ pg_dump --version
 
 # check db is accessible
 psql --username={{.User}} {{.DB}} --host {{.Host}} --port {{.Port}} -c "SELECT 1;" >/dev/null
+
+# print last dump if available
+ls -lha "{{.DumpFile}}" || true
