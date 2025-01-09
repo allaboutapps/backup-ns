@@ -10,6 +10,7 @@
       - [Adhoc backups and dumps via a local `backup-ns` cli and `kubectl envx`](#adhoc-backups-and-dumps-via-a-local-backup-ns-cli-and-kubectl-envx)
         - [Trigger an adhoc backup job](#trigger-an-adhoc-backup-job)
         - [Dump the postgres database on the live filesystem](#dump-the-postgres-database-on-the-live-filesystem)
+        - [Download the postgres database dump to the local filesystem](#download-the-postgres-database-dump-to-the-local-filesystem)
         - [Restore the current dump of the postgres database on the live filesystem](#restore-the-current-dump-of-the-postgres-database-on-the-live-filesystem)
         - [Dump the mysql/mariadb database on the live filesystem](#dump-the-mysqlmariadb-database-on-the-live-filesystem)
         - [Restore the current dump of the mysql/mariadb database on the live filesystem](#restore-the-current-dump-of-the-mysqlmariadb-database-on-the-live-filesystem)
@@ -161,6 +162,25 @@ kubectl envx cronjob/backup -- backup-ns postgres dump
 # + '[' 0 -ne 0 ']'
 # + exit 0
 # 2025/01/08 16:49:35 Finished postgres dump in namespace='go-starter-dev'!
+```
+
+##### Download the postgres database dump to the local filesystem
+
+```bash
+kubectl envx cronjob/backup -- backup-ns postgres downloadDump
+# 2025/01/09 15:30:51 Checking if resource 'deployment/app-base' exists in namespace 'go-starter-dev'...
+# 2025/01/09 15:30:52 Resource 'deployment/app-base' is available in namespace 'go-starter-dev'.
+# 2025/01/09 15:30:52 Checking if Postgres is available in namespace 'go-starter-dev'...
+# 2025/01/09 15:30:53 Templated script 'postgres_check.sh.tmpl' completed. 
+# [...]
+# + ls -lha /var/lib/postgresql/data/dump.sql.gz
+# -rw-r--r--    1 postgres root       21.3K Jan  8 23:17 /var/lib/postgresql/data/dump.sql.gz
+# 2025/01/09 15:30:56 Downloading postgres dump from namespace='go-starter-dev' to go-starter-dev_2025-01-08T23-17-50Z_postgres_dump.tar.gz
+# 2025/01/09 15:30:57 Successfully downloaded dump file (size: 21791 bytes)
+# 2025/01/09 15:30:57 to unpack:
+# gzip -dc go-starter-dev_2025-01-08T23-17-50Z_postgres_dump.tar.gz > dump.sql
+# 2025/01/09 15:30:57 to import:
+# gzip -dc go-starter-dev_2025-01-08T23-17-50Z_postgres_dump.tar.gz | psql --host 127.0.0.1 --port 5432 --username=${POSTGRES_USER} ${POSTGRES_DB}
 ```
 
 ##### Restore the current dump of the postgres database on the live filesystem

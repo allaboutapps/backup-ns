@@ -54,6 +54,17 @@ func TestDumpAndRestorePostgres(t *testing.T) {
 		t.Fatal("backup Postgres failed: ", err)
 	}
 
+	timestamp, err := lib.GetRemoteFileTimestamp(namespace, postgresConfig.ExecResource, postgresConfig.ExecContainer, postgresConfig.DumpFile)
+	if err != nil {
+		t.Fatal("get remote file timestamp failed: ", err)
+	}
+
+	// Verify timestamp is recent (within last minute)
+	now := time.Now()
+	if !timestamp.After(now.Add(-1*time.Minute)) || !timestamp.Before(now) {
+		t.Fatal("dump file timestamp not within expected range")
+	}
+
 	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig, time.Now())
 	vsAnnotations := lib.GenerateVSAnnotations(map[string]string{
 		"BAK_NAMESPACE":                 namespace,
