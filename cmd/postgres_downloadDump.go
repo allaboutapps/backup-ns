@@ -14,7 +14,7 @@ import (
 
 var (
 	customPostgresOutputFile string
-	downloadRetries          int
+	postgresDownloadRetries  int
 )
 
 var postgresDownloadDumpCmd = &cobra.Command{
@@ -34,7 +34,7 @@ var postgresDownloadDumpCmd = &cobra.Command{
 func init() {
 	postgresCmd.AddCommand(postgresDownloadDumpCmd)
 	postgresDownloadDumpCmd.Flags().StringVarP(&customPostgresOutputFile, "output", "o", "", "Custom absolute output filepath")
-	postgresDownloadDumpCmd.Flags().IntVar(&downloadRetries, "retries", 3, "Number of retries for kubectl cp")
+	postgresDownloadDumpCmd.Flags().IntVar(&postgresDownloadRetries, "retries", 3, "Number of retries for kubectl cp")
 }
 
 func generateDumpFilename(namespace string, timestamp time.Time) string {
@@ -79,7 +79,7 @@ func runPostgresDownload(config lib.Config) {
 	cmd := exec.Command("kubectl",
 		"cp",
 		"-c", config.Postgres.ExecContainer,
-		fmt.Sprintf("--retries=%d", downloadRetries),
+		fmt.Sprintf("--retries=%d", postgresDownloadRetries),
 		fmt.Sprintf("%s/%s:%s", config.Namespace, podName, config.Postgres.DumpFile),
 		localPath,
 	)

@@ -54,6 +54,17 @@ func TestDumpAndRestoreMySQL(t *testing.T) {
 		t.Fatal("backup MySQL failed: ", err)
 	}
 
+	timestamp, err := lib.GetRemoteFileTimestamp(namespace, mysqlConfig.ExecResource, mysqlConfig.ExecContainer, mysqlConfig.DumpFile)
+	if err != nil {
+		t.Fatal("get remote file timestamp failed: ", err)
+	}
+
+	// Verify timestamp is recent (within last minute)
+	now := time.Now()
+	if !timestamp.After(now.Add(-1*time.Minute)) || !timestamp.Before(now) {
+		t.Fatal("dump file timestamp not within expected range")
+	}
+
 	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig, time.Now())
 	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
 

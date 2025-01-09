@@ -13,6 +13,7 @@
         - [Download the postgres database dump to the local filesystem](#download-the-postgres-database-dump-to-the-local-filesystem)
         - [Restore the current dump of the postgres database on the live filesystem](#restore-the-current-dump-of-the-postgres-database-on-the-live-filesystem)
         - [Dump the mysql/mariadb database on the live filesystem](#dump-the-mysqlmariadb-database-on-the-live-filesystem)
+        - [Download the mysql/mariadb database dump to the local filesystem](#download-the-mysqlmariadb-database-dump-to-the-local-filesystem)
         - [Restore the current dump of the mysql/mariadb database on the live filesystem](#restore-the-current-dump-of-the-mysqlmariadb-database-on-the-live-filesystem)
     - [Labels](#labels)
   - [Concepts](#concepts)
@@ -222,6 +223,12 @@ kubectl envx cronjob/backup -- backup-ns postgres restore
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns mysql dump
+```
+
+##### Download the mysql/mariadb database dump to the local filesystem
+
+```bash
+kubectl envx cronjob/backup -- backup-ns mysql downloadDump
 ```
 
 ##### Restore the current dump of the mysql/mariadb database on the live filesystem
