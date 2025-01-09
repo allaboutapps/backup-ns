@@ -34,15 +34,21 @@
 
 ## Introduction
 
-This project combines Kubernetes CSI-based snapshots with application-aware (also called application-consistent) creation mechanisms. It is designed to be used in a multi-tenant cluster environments where namespaces are used to separate different customer applications/environments. 
+This project combines Kubernetes CSI-based snapshots with application-aware (also called [application-consistent](https://cloud.google.com/compute/docs/disks/creating-linux-application-consistent-pd-snapshots)) creation mechanisms. It is designed to be used in a multi-tenant cluster environments where namespaces are used to separate different customer applications/environments. 
 
 Current focus:
 * Simple cli util for backup and restore without the need for operators or custom resource definitions (CRDs).
-* Using the proper compatible `mysqldump` and `pg_dump` is crucial when doing dumps! By executing these dumps in the same pod as the database container, compatibility is guaranteed.
 * Stick to the primitives. Just use k8s `CronJobs` for daily backup and handle retention with labels (`backup-ns.sh/`). 
+* Focus on **PostgreSQL** and **MySQL/MariaDB** for now.
+  * Using the proper compatible `mysqldump` and `pg_dump` is crucial when doing dumps.
+  * By creating these dumps in the database container, compatibility is guaranteed.
 * Control backup job concurrency on the node-level via flock.
 * Mark and sweep like handling, giving you time between marking the volume snapshot for deletion and actual deletion.
-* Low-dependency, only requires `kubectl` to be in `PATH`.
+* Low-dependency, only requires `kubectl` to be in `PATH`
+* The `backup-ns` binary can be used locally to:
+  * list / filter backups,
+  * trigger adhoc volume snapshots,
+  * create, restore, download database dumps.
 
 ## Usage
 
@@ -370,6 +376,11 @@ This section describes the structure and various processes of the backup-ns proj
   2. `pruner`: Handles snapshot retention and cleanup
 
 ### Application-aware backup creation
+
+Application-aware currently means to ensure the DB is dumped on the same disk before the volume snapshot is taken. This handling is implemented for PostgreSQL and MySQL/MariaDB. In the future, this could be extended to other applications that require special handling before a snapshot is taken. Having a custom script target might also be an option.
+
+> If you are interested in adding support for another database, please open an issue or PR.
+> See [/templates](internal/lib/templates) and [postgres.go](internal/lib/postgres.go) how this is implemented currently.
 
 This diagram shows the process of a backup job for a PostgreSQL database. The same is possible with MySQL or by entirely skipping the database.
 
