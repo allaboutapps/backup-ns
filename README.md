@@ -5,17 +5,18 @@
   - [Usage](#usage)
     - [Install via static manifests](#install-via-static-manifests)
     - [Install via helm](#install-via-helm)
-    - [Adhoc operations](#adhoc-operations)
-      - [Create a new adhoc backup job via the `create-adhoc-backup.sh` script](#create-a-new-adhoc-backup-job-via-the-create-adhoc-backupsh-script)
-      - [Adhoc backups and dumps via a local `backup-ns` cli and `kubectl envx`](#adhoc-backups-and-dumps-via-a-local-backup-ns-cli-and-kubectl-envx)
-        - [Trigger an adhoc backup job](#trigger-an-adhoc-backup-job)
-        - [Dump the postgres database on the live filesystem](#dump-the-postgres-database-on-the-live-filesystem)
-        - [Download the postgres database dump to the local filesystem](#download-the-postgres-database-dump-to-the-local-filesystem)
-        - [Restore the current dump of the postgres database on the live filesystem](#restore-the-current-dump-of-the-postgres-database-on-the-live-filesystem)
-        - [Dump the mysql/mariadb database on the live filesystem](#dump-the-mysqlmariadb-database-on-the-live-filesystem)
-        - [Download the mysql/mariadb database dump to the local filesystem](#download-the-mysqlmariadb-database-dump-to-the-local-filesystem)
-        - [Restore the current dump of the mysql/mariadb database on the live filesystem](#restore-the-current-dump-of-the-mysqlmariadb-database-on-the-live-filesystem)
     - [Labels](#labels)
+    - [Listing Snapshots](#listing-snapshots)
+    - [Label Manipulation](#label-manipulation)
+    - [`create-adhoc-backup.sh`: Create a new adhoc backup job](#create-adhoc-backupsh-create-a-new-adhoc-backup-job)
+    - [Using `backup-ns` locally for triggering adhoc operations](#using-backup-ns-locally-for-triggering-adhoc-operations)
+      - [Trigger an adhoc backup job](#trigger-an-adhoc-backup-job)
+      - [Dump the postgres database on the live filesystem](#dump-the-postgres-database-on-the-live-filesystem)
+      - [Download the postgres database dump to the local filesystem](#download-the-postgres-database-dump-to-the-local-filesystem)
+      - [Restore the current dump of the postgres database on the live filesystem](#restore-the-current-dump-of-the-postgres-database-on-the-live-filesystem)
+      - [Dump the mysql/mariadb database on the live filesystem](#dump-the-mysqlmariadb-database-on-the-live-filesystem)
+      - [Download the mysql/mariadb database dump to the local filesystem](#download-the-mysqlmariadb-database-dump-to-the-local-filesystem)
+      - [Restore the current dump of the mysql/mariadb database on the live filesystem](#restore-the-current-dump-of-the-mysqlmariadb-database-on-the-live-filesystem)
   - [Concepts](#concepts)
     - [Structure](#structure)
       - [Namespace-Specific](#namespace-specific)
@@ -61,15 +62,110 @@ The global controller components must be deployed via static manifests.
 
 See https://code.allaboutapps.at/backup-ns/ for the latest helm chart and [`charts/backup-ns/values.yaml`](charts/backup-ns/values.yaml) for the default values.
 
-### Adhoc operations
 
-Sometimes it is necessary to manually create a volume snapshot or to trigger database dumps and restores. This can be done by:
-* by using the namespaced `backup` cronjob as template for creating a new k8s adhoc backup job and overwriting the new `ENV` vars or
-* running the `backup-ns` cli tool locally to create a new adhoc backup job, also overwriting the `ENV` vars (based on the `backup` cronjob).
+### Labels
 
-Here are some sample operations for accomblish that.
+backup-ns uses the following label categories:
 
-#### Create a new adhoc backup job via the `create-adhoc-backup.sh` script
+- **Retention Labels**
+  - `backup-ns.sh/daily="YYYY-MM-DD"`
+  - `backup-ns.sh/weekly="w04"`
+  - `backup-ns.sh/monthly="YYYY-MM"`
+- **Management Labels** 
+  - `backup-ns.sh/delete-after="YYYY-MM-DD"` (marks snapshot for deletion)
+  - `backup-ns.sh/retain` (general retention flag)
+  - `backup-ns.sh/type` (backup type identifier)
+
+### Listing Snapshots
+
+The `backup-ns list` command provides convenient filtering:
+
+```bash
+# Install the backup-ns binary locally
+# See https://github.com/allaboutapps/backup-ns/releases for cli installation instructions.
+
+# Basic listing
+backup-ns list           # Current namespace
+backup-ns list -A        # All namespaces
+
+# Filter by retention type
+backup-ns list --daily
+backup-ns list --weekly  
+backup-ns list --monthly
+backup-ns list --adhoc
+
+# Sample output
+backup-ns list
+# Namespace: go-starter-dev
+# Listing volume snapshots with labels: backup-ns.sh/retain
+# NAME                            SNAPSHOTCONTENT      CREATIONTIME   AGE     TYPE      RETAIN                 DAILY        WEEKLY   MONTHLY   DELETE-AFTER
+# data-2024-04-17-001946-s6bah4   snapcontent-aa164b   267d           267d    cronjob   daily_weekly_monthly                         2024-04
+# data-2024-05-01-001827-atxtnf   snapcontent-00b33a   253d           253d    cronjob   daily_weekly_monthly                         2024-05
+# data-2024-06-01-001959-7osghz   snapcontent-1a5a50   222d           222d    cronjob   daily_weekly_monthly                         2024-06
+# data-2024-07-01-001713-xm0gxn   snapcontent-61dfe0   192d           192d    cronjob   daily_weekly_monthly                         2024-07
+# data-2024-08-01-001708-7l3q5d   snapcontent-3a54f5   161d           161d    cronjob   daily_weekly_monthly                         2024-08
+# data-2024-09-01-001759-aw132j   snapcontent-202c12   130d           130d    cronjob   daily_weekly_monthly                         2024-09
+# data-2024-10-01-001717-hi2hb6   snapcontent-d0d009   100d           100d    cronjob   daily_weekly_monthly                         2024-10
+# data-2024-11-01-003135-fppref   snapcontent-2ddcb5   69d            69d     cronjob   daily_weekly_monthly                         2024-11
+# data-2024-12-01-001746-kbxebe   snapcontent-fabf33   39d            39d     cronjob   daily_weekly_monthly                         2024-12
+# data-2024-12-17-144438-otsedc   snapcontent-7677a5   23d            23d     adhoc     days                                                   2025-01-16
+# data-2024-12-23-001716-teefnb   snapcontent-89b2b7   17d            17d     cronjob   daily_weekly_monthly                w52
+# data-2024-12-30-002012-izgqoi   snapcontent-3aa08d   10d            10d     cronjob   daily_weekly_monthly                w53
+# data-2025-01-01-001709-sivtji   snapcontent-d30758   8d             8d      cronjob   daily_weekly_monthly                w01      2025-01
+# data-2025-01-02-001754-ntwghm   snapcontent-d9c9ff   7d17h          7d17h   cronjob   daily_weekly_monthly                                   2025-01-09
+# data-2025-01-03-001757-vsgkkc   snapcontent-2d7844   6d17h          6d17h   cronjob   daily_weekly_monthly   2025-01-03
+# data-2025-01-04-001759-bfzceo   snapcontent-4d6b12   5d17h          5d17h   cronjob   daily_weekly_monthly   2025-01-04
+# data-2025-01-05-002023-quvkyv   snapcontent-a7a4a3   4d17h          4d17h   cronjob   daily_weekly_monthly   2025-01-05
+# data-2025-01-06-003219-meaukv   snapcontent-08a8eb   3d16h          3d16h   cronjob   daily_weekly_monthly   2025-01-06   w02
+# data-2025-01-07-003037-wmkylm   snapcontent-6b2c92   2d16h          2d16h   cronjob   daily_weekly_monthly   2025-01-07
+# data-2025-01-07-182742-fgztxg   snapcontent-952208   46h            46h     adhoc     days                                                   2025-02-06
+# data-2025-01-08-001706-crlfxa   snapcontent-a7416f   41h            41h     cronjob   daily_weekly_monthly   2025-01-08
+# data-2025-01-08-180009-yjculw   snapcontent-e3dc13   23h            23h     adhoc     days                                                   2025-02-07
+# data-2025-01-09-001749-vfyfeu   snapcontent-7ed61b   17h            17h     cronjob   daily_weekly_monthly   2025-01-09
+```
+
+Advanced listing using `kubectl` directly:
+
+```bash
+# Under the hook the above list commands directly translate to kubectl get commands.
+# It's all based on labels. Feel free to use kubectl directly for more advanced queries.
+
+# List all application-aware snapshots
+kubectl get vs -lbackup-ns.sh/retain \
+  -Lbackup-ns.sh/type,backup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after \
+  --all-namespaces
+
+# List snapshots marked for deletion
+kubectl get vs --all-namespaces \
+  -l"backup-ns.sh/delete-after" \
+  -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after
+```
+
+### Label Manipulation
+
+```bash
+# Add a specific deleteAfter label (the pruner will delete the vs after the specified date)!
+kubectl label vs/<vs> "backup-ns.sh/delete-after"="YYYY-MM-DD"  # Add
+
+# Remove a deleteAfter labeled vs (this prevents the backup-ns pruner from deleting the vs):
+kubectl label vs/<vs> "backup-ns.sh/delete-after"-              # Remove
+
+# Remove retain based labels if they should no longer count to our policy
+kubectl label vs/<vs> "backup-ns.sh/daily"-
+kubectl label vs/<vs> "backup-ns.sh/weekly"-
+kubectl label vs/<vs> "backup-ns.sh/monthly"-
+
+# Add a specific label daily/weekly/monthly (typically done by the backup-ns cronjob directly, normally not needed)
+kubectl label vs/<vs> "backup-ns.sh/daily"="YYYY-MM-DD"
+kubectl label vs/<vs> "backup-ns.sh/weekly"="w04"
+kubectl label vs/<vs> "backup-ns.sh/monthly"="YYYY-MM"
+```
+
+### `create-adhoc-backup.sh`: Create a new adhoc backup job
+
+Sometimes it is necessary to **manually** create an adhoc volume snapshot that is not part of the normal retention logic (but instead auto-deleted after 30 days). This can be done by by using the namespaced `backup` cronjob as template for creating a new k8s adhoc backup job and overwriting the new `ENV` vars.
+
+The `create-adhoc-backup.sh` script is a utility to do this easily.
 
 ```bash
 # Install the create-adhoc-backup.sh bash script locally
@@ -95,9 +191,9 @@ Here are some sample operations for accomblish that.
 # kubectl -n go-starter-dev label vs/<snapshot-name> backup-ns.sh/retain- backup-ns.sh/delete-after-
 ```
 
-#### Adhoc backups and dumps via a local `backup-ns` cli and `kubectl envx`
+### Using `backup-ns` locally for triggering adhoc operations
 
-This requires the [`kubectl envx`](https://github.com/majodev/kubectl-envx) plugin to be installed and the `backup-ns` binary to be available locally (so it can interact with `kubectl` directly). 
+It's also possible to run the `backup-ns` cli tool locally to create a new adhoc backup job and explicitly overwrie the `ENV` vars (based on the `backup` cronjob) as needed. For easy `ENV` reuse, install the [`kubectl envx`](https://github.com/majodev/kubectl-envx) plugin. The `backup-ns` binary should furthermore to be available locally (so it can interact with `kubectl` directly). 
 
 ```bash
 # Install the backup-ns binary locally
@@ -117,7 +213,7 @@ kubectl envx cronjob/backup
 # TZ=Europe/Vienna
 ```
 
-##### Trigger an adhoc backup job
+#### Trigger an adhoc backup job
 
 ```bash
 # same ENV vars as the backup cronjob, but disabling flock and changing the type to adhoc and retain to days
@@ -137,7 +233,7 @@ kubectl envx cronjob/backup BAK_LABEL_VS_TYPE=adhoc BAK_FLOCK=false BAK_LABEL_VS
 # 2025/01/08 16:43:41 Finished backup vs_name='data-2025-01-08-164308-dcdkes' in namespace='go-starter-dev'!
 ```
 
-##### Dump the postgres database on the live filesystem
+#### Dump the postgres database on the live filesystem
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns postgres dump
@@ -165,7 +261,7 @@ kubectl envx cronjob/backup -- backup-ns postgres dump
 # 2025/01/08 16:49:35 Finished postgres dump in namespace='go-starter-dev'!
 ```
 
-##### Download the postgres database dump to the local filesystem
+#### Download the postgres database dump to the local filesystem
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns postgres downloadDump
@@ -184,7 +280,7 @@ kubectl envx cronjob/backup -- backup-ns postgres downloadDump
 # gzip -dc go-starter-dev_2025-01-08T23-17-50Z_postgres_dump.tar.gz | psql --host 127.0.0.1 --port 5432 --username=${POSTGRES_USER} ${POSTGRES_DB}
 ```
 
-##### Restore the current dump of the postgres database on the live filesystem
+#### Restore the current dump of the postgres database on the live filesystem
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns postgres restore
@@ -219,76 +315,22 @@ kubectl envx cronjob/backup -- backup-ns postgres restore
 # 2025/01/08 16:54:00 Finished postgres restore in namespace='go-starter-dev'!
 ```
 
-##### Dump the mysql/mariadb database on the live filesystem
+#### Dump the mysql/mariadb database on the live filesystem
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns mysql dump
 ```
 
-##### Download the mysql/mariadb database dump to the local filesystem
+#### Download the mysql/mariadb database dump to the local filesystem
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns mysql downloadDump
 ```
 
-##### Restore the current dump of the mysql/mariadb database on the live filesystem
+#### Restore the current dump of the mysql/mariadb database on the live filesystem
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns mysql restore
-```
-
-
-### Labels
-
-Here are some typical labels backup-ns currently uses for creating and retaining the volume snapshots and how to manipulate them manually:
-
-```bash
-# Remove a deleteAfter labeled vs (this prevents the backup-ns pruner from deleting the vs):
-kubectl label vs/<vs> "backup-ns.sh/delete-after"-
-
-# Remove a specific label for daily/weekly/monthly retention
-kubectl label vs/<vs> "backup-ns.sh/daily"-
-kubectl label vs/<vs> "backup-ns.sh/weekly"-
-kubectl label vs/<vs> "backup-ns.sh/monthly"-
-
-# Add a specific label daily/weekly/monthly
-kubectl label vs/<vs> "backup-ns.sh/daily"="YYYY-MM-DD"
-kubectl label vs/<vs> "backup-ns.sh/weekly"="w04"
-kubectl label vs/<vs> "backup-ns.sh/monthly"="YYYY-MM"
-
-# Add a specific deleteAfter label (the pruner will delete the vs after the specified date)!
-kubectl label vs/<vs> "backup-ns.sh/delete-after"="YYYY-MM-DD"
-```
-
-Here are some typical volume snapshot list commands based on that labels:
-
-```bash
-# List application-aware volume snapshots overview in the current namespace
-backup-ns list
-
-# All namespaces
-backup-ns list -A
-
-# Filter by daily, weekly, monthly and adhoc:
-backup-ns list --daily
-backup-ns list --weekly
-backup-ns list --monthly
-backup-ns list --adhoc
-
-# Under the hook the above commands directly translate to the following kubectl commands.
-# It's all based on labels.
-# Feel free to use kubectl directly for more advanced queries.
-
-# List application-aware volume snapshots overview all namespaces
-kubectl get vs -lbackup-ns.sh/retain -Lbackup-ns.sh/type,backup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after --all-namespaces
-
-# Filter by daily, weekly, monthly:
-kubectl get vs -lbackup-ns.sh/retain,backup-ns.sh/daily -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly --all-namespaces
-kubectl get vs -lbackup-ns.sh/retain,backup-ns.sh/weekly -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly --all-namespaces
-kubectl get vs -lbackup-ns.sh/retain,backup-ns.sh/monthly -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly --all-namespaces
-
-# Filter for marked for deletion snapshots
-kubectl get vs --all-namespaces -l"backup-ns.sh/delete-after" -Lbackup-ns.sh/retain,backup-ns.sh/daily,backup-ns.sh/weekly,backup-ns.sh/monthly,backup-ns.sh/delete-after
 ```
 
 ## Concepts
