@@ -19,7 +19,7 @@ var deleteAfterMarkCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(deleteAfterMarkCmd)
+	controllerCmd.AddCommand(deleteAfterMarkCmd)
 
 	// Here you will define your flags and configuration settings.
 

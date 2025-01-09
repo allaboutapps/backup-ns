@@ -19,7 +19,7 @@ var deleteAfterSweepCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(deleteAfterSweepCmd)
+	controllerCmd.AddCommand(deleteAfterSweepCmd)
 
 	// Here you will define your flags and configuration settings.
 

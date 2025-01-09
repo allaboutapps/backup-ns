@@ -38,7 +38,7 @@ var syncMetadataToVscCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(syncMetadataToVscCmd)
+	controllerCmd.AddCommand(syncMetadataToVscCmd)
 
 	// Here you will define your flags and configuration settings.
 

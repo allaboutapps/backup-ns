@@ -85,6 +85,7 @@ spec:
             name: sync-metadata-to-vsc
             command: 
               - /app/backup-ns
+              - controller
               - syncMetadataToVsc
             volumeMounts:
             - name: timezone

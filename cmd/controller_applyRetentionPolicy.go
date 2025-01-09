@@ -19,7 +19,7 @@ var applyRetentionPolicyCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(applyRetentionPolicyCmd)
+	controllerCmd.AddCommand(applyRetentionPolicyCmd)
 
 	// Here you will define your flags and configuration settings.
 

@@ -5,6 +5,7 @@
 
 * `v0.2.0` introduces a change in how the value of the `backup-ns.sh/weekly` label is generated. e.g. the value of the label is now `w04` instead of `YYYY-w04` (where 04 is the current week number). 
 * `v0.2.0` places final binary from under `/app/backup-ns` (instead of `/app/app`), any references to it within your manifests must be updated.
+* All controller related subcommands are now under the `controller` subcommand. e.g. `backup-ns controller syncMetadataToVsc`.
 
 ## Migration Steps for the `backup-ns.sh/weekly` label
 
