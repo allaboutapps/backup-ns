@@ -5,6 +5,7 @@
   - [Usage](#usage)
     - [Install via static manifests](#install-via-static-manifests)
     - [Install via helm](#install-via-helm)
+    - [VolumeSnapshotClass](#volumesnapshotclass)
     - [Labels](#labels)
     - [Listing Snapshots](#listing-snapshots)
     - [Label Manipulation](#label-manipulation)
@@ -69,6 +70,25 @@ The global controller components must be deployed via static manifests.
 
 See https://code.allaboutapps.at/backup-ns/ for the latest helm chart and [`charts/backup-ns/values.yaml`](charts/backup-ns/values.yaml) for the default values.
 
+### VolumeSnapshotClass 
+
+We require a VolumeSnapshotClass to be present in the cluster. In order to protect against accidental deletion of snapshots (e.g. namespace deletion), the deletionPolicy must be set to `Retain`.
+
+```yaml
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: my-default-snapshot-class
+  annotations:
+    # If you don't set this snapshot class as the default, you will have to specify it within the BAK_VS_CLASS_NAME env var.
+    snapshot.storage.kubernetes.io/is-default-class: "true"
+driver: <your-csi-driver>
+parameters:
+  storage-locations: europe-west3
+# The retain controller automatically patches VolmeSnapshotContents that are "released" with the Delete deletionPolicy.
+# However, normally you should always run with "Retain" to ensure that an (accidental) namespace delete does not delete the actual disk snapshot. 
+deletionPolicy: Retain
+```
 
 ### Labels
 
