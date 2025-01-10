@@ -8,6 +8,7 @@
     - [Labels](#labels)
     - [Listing Snapshots](#listing-snapshots)
     - [Label Manipulation](#label-manipulation)
+    - [ENV vars](#env-vars)
     - [`create-adhoc-backup.sh`: Create a new adhoc backup job](#create-adhoc-backupsh-create-a-new-adhoc-backup-job)
     - [Using `backup-ns` locally for triggering adhoc operations](#using-backup-ns-locally-for-triggering-adhoc-operations)
       - [Trigger an adhoc backup job](#trigger-an-adhoc-backup-job)
@@ -167,6 +168,10 @@ kubectl label vs/<vs> "backup-ns.sh/weekly"="w04"
 kubectl label vs/<vs> "backup-ns.sh/monthly"="YYYY-MM"
 ```
 
+### ENV vars
+
+See [internal/lib/bak_env.go](internal/lib/bak_env.go) for all available ENV vars (`BAK_*`) and their default values.
+
 ### `create-adhoc-backup.sh`: Create a new adhoc backup job
 
 Sometimes it is necessary to **manually** create an adhoc volume snapshot that is not part of the normal retention logic (but instead auto-deleted after 30 days). This can be done by by using the namespaced `backup` cronjob as template for creating a new k8s adhoc backup job and overwriting the new `ENV` vars.
@@ -199,7 +204,9 @@ The `create-adhoc-backup.sh` script is a utility to do this easily.
 
 ### Using `backup-ns` locally for triggering adhoc operations
 
-It's also possible to run the `backup-ns` cli tool locally to create a new adhoc backup job and explicitly overwrie the `ENV` vars (based on the `backup` cronjob) as needed. For easy `ENV` reuse, install the [`kubectl envx`](https://github.com/majodev/kubectl-envx) plugin. The `backup-ns` binary should furthermore to be available locally (so it can interact with `kubectl` directly). 
+It's also possible to run the `backup-ns` cli tool locally to create new adhoc backup jobs or work with database dumps. To easily get the currently used ENV vars from the backup cronjob and overwriting them, install the [`kubectl envx`](https://github.com/majodev/kubectl-envx) plugin.
+
+The `backup-ns` binary must furthermore be available locally so it can interact with `kubectl` directly. 
 
 ```bash
 # Install the backup-ns binary locally
@@ -222,7 +229,10 @@ kubectl envx cronjob/backup
 #### Trigger an adhoc backup job
 
 ```bash
-# same ENV vars as the backup cronjob, but disabling flock and changing the type to adhoc and retain to days
+# same ENV vars as the backup cronjob, but:
+# * disabling flock file locking (prevents concurrent backup creating of multiple namespaces on the same node)
+# * change the backup type to adhoc and
+# * and set retain to days (defaults to 30 days, after that the backup will be auto-deleted)
 kubectl envx cronjob/backup BAK_LABEL_VS_TYPE=adhoc BAK_FLOCK=false BAK_LABEL_VS_RETAIN=days -- backup-ns create
 # 2025/01/08 16:43:08 VS Name: data-2025-01-08-164308-dcdkes
 # 2025/01/08 16:43:08 Checking if PVC 'data' exists in namespace 'go-starter-dev'...
