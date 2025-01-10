@@ -9,7 +9,7 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "app",
+	Use:   "backup-ns",
 	Short: "k8s application-aware snapshots",
 	// Long: ``,
 	// Uncomment the following line if your bare application
