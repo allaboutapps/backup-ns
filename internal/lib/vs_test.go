@@ -188,3 +188,67 @@ func TestVolumeCreateSimulatedForWeek(t *testing.T) {
 		})
 	}
 }
+
+func TestRestoreVolumeSnapshot(t *testing.T) {
+	// Create a test snapshot first
+	namespace := "generic-test"
+	vsName := fmt.Sprintf("test-backup-restore-%s", lib.GenerateRandomStringOrPanic(6))
+
+	labelVSConfig := lib.LabelVSConfig{
+		Type:       "adhoc",
+		Pod:        "gotest",
+		Retain:     "days",
+		RetainDays: 30,
+	}
+
+	vsLabels := lib.GenerateVSLabels(namespace, "data", labelVSConfig, time.Now())
+	vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
+	vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", "data", vsName, vsLabels, vsAnnotations)
+
+	// Create the snapshot and wait for it to be ready
+	err := lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, true, "25s")
+	require.NoError(t, err, "Failed to create test snapshot")
+
+	t.Run("successful restore", func(t *testing.T) {
+		pvcName := fmt.Sprintf("%s-restored", vsName)
+		err := lib.RestoreVolumeSnapshot(namespace, false, vsName, pvcName, "csi-hostpath-sc", true, "25s")
+		require.NoError(t, err)
+
+		// Verify the PVC was created
+		cmd := exec.Command("kubectl", "get", "pvc", pvcName, "-n", namespace)
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, "Failed to get restored PVC: %s", string(output))
+
+		// Clean up the restored PVC
+		cmd = exec.Command("kubectl", "delete", "pvc", pvcName, "-n", namespace)
+		output, err = cmd.CombinedOutput()
+		require.NoError(t, err, "Failed to clean up restored PVC: %s", string(output))
+	})
+
+	t.Run("dry run mode", func(t *testing.T) {
+		pvcName := fmt.Sprintf("%s-restored2", vsName)
+		err := lib.RestoreVolumeSnapshot(namespace, true, vsName, pvcName, "csi-hostpath-sc", false, "25s")
+		require.NoError(t, err)
+
+		// Verify the PVC was not created
+		cmd := exec.Command("kubectl", "get", "pvc", pvcName, "-n", namespace)
+		_, err = cmd.CombinedOutput()
+		require.Error(t, err, "PVC should not exist in dry run mode")
+	})
+
+	t.Run("non-existent namespace", func(t *testing.T) {
+		pvcName := fmt.Sprintf("%s-restored3", vsName)
+		err := lib.RestoreVolumeSnapshot("non-existent-namespace", false, vsName, pvcName, "csi-hostpath-sc", false, "25s")
+		require.Error(t, err)
+	})
+
+	t.Run("non-existent snapshot", func(t *testing.T) {
+		pvcName := "test-pvc"
+		err := lib.RestoreVolumeSnapshot(namespace, false, "non-existent-snapshot", pvcName, "csi-hostpath-sc", false, "25s")
+		require.Error(t, err)
+	})
+
+	// Clean up the test snapshot
+	err = lib.PruneVolumeSnapshot(namespace, vsName, false)
+	require.NoError(t, err, "Failed to clean up test snapshot")
+}
