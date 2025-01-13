@@ -15,6 +15,7 @@ var (
 	filterWeekly  bool
 	filterMonthly bool
 	filterAdhoc   bool
+	filterCronjob bool
 )
 
 var vsListCmd = &cobra.Command{
@@ -43,6 +44,9 @@ var vsListCmd = &cobra.Command{
 		}
 		if filterAdhoc {
 			labelSelector += ",backup-ns.sh/type=adhoc"
+		}
+		if filterCronjob {
+			labelSelector += ",backup-ns.sh/type=cronjob"
 		}
 
 		// Build kubectl command
@@ -81,5 +85,6 @@ func init() {
 	vsListCmd.Flags().BoolVar(&filterDaily, "daily", false, "Filter daily snapshots")
 	vsListCmd.Flags().BoolVar(&filterWeekly, "weekly", false, "Filter weekly snapshots")
 	vsListCmd.Flags().BoolVar(&filterMonthly, "monthly", false, "Filter monthly snapshots")
-	vsListCmd.Flags().BoolVar(&filterAdhoc, "adhoc", false, "Filter adhoc snapshots")
+	vsListCmd.Flags().BoolVar(&filterAdhoc, "adhoc", false, "Filter type adhoc snapshots")
+	vsListCmd.Flags().BoolVar(&filterCronjob, "cronjob", false, "Filter type cronjob snapshots")
 }
