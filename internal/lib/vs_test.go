@@ -211,7 +211,7 @@ func TestRestoreVolumeSnapshot(t *testing.T) {
 
 	t.Run("successful restore", func(t *testing.T) {
 		pvcName := fmt.Sprintf("%s-restored", vsName)
-		err := lib.RestoreVolumeSnapshot(namespace, false, vsName, pvcName, "csi-hostpath-sc", true, "25s")
+		err := lib.RestoreVolumeSnapshot(namespace, vsName, pvcName, "csi-hostpath-sc", true, "25s")
 		require.NoError(t, err)
 
 		// Verify the PVC was created
@@ -225,26 +225,15 @@ func TestRestoreVolumeSnapshot(t *testing.T) {
 		require.NoError(t, err, "Failed to clean up restored PVC: %s", string(output))
 	})
 
-	t.Run("dry run mode", func(t *testing.T) {
-		pvcName := fmt.Sprintf("%s-restored2", vsName)
-		err := lib.RestoreVolumeSnapshot(namespace, true, vsName, pvcName, "csi-hostpath-sc", false, "25s")
-		require.NoError(t, err)
-
-		// Verify the PVC was not created
-		cmd := exec.Command("kubectl", "get", "pvc", pvcName, "-n", namespace)
-		_, err = cmd.CombinedOutput()
-		require.Error(t, err, "PVC should not exist in dry run mode")
-	})
-
 	t.Run("non-existent namespace", func(t *testing.T) {
 		pvcName := fmt.Sprintf("%s-restored3", vsName)
-		err := lib.RestoreVolumeSnapshot("non-existent-namespace", false, vsName, pvcName, "csi-hostpath-sc", false, "25s")
+		err := lib.RestoreVolumeSnapshot("non-existent-namespace", vsName, pvcName, "csi-hostpath-sc", false, "25s")
 		require.Error(t, err)
 	})
 
 	t.Run("non-existent snapshot", func(t *testing.T) {
 		pvcName := "test-pvc"
-		err := lib.RestoreVolumeSnapshot(namespace, false, "non-existent-snapshot", pvcName, "csi-hostpath-sc", false, "25s")
+		err := lib.RestoreVolumeSnapshot(namespace, "non-existent-snapshot", pvcName, "csi-hostpath-sc", false, "25s")
 		require.Error(t, err)
 	})
 

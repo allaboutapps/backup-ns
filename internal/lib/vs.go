@@ -334,9 +334,9 @@ func PruneVolumeSnapshot(namespace, volumeSnapshotName string, wait bool) error 
 	return nil
 }
 
-// RestoreVolumeSnapshot creates a new PVC from a VolumeSnapshot
-func RestoreVolumeSnapshot(namespace string, dryRun bool, vsName string, pvcName string, storageClass string, wait bool, waitTimeout string) error {
-	// Create PVC manifest
+// CreatePVCManifestFromVolumeSnapshot creates a PVC manifest from a VolumeSnapshot
+func CreatePVCManifestFromVolumeSnapshot(namespace, vsName, pvcName, storageClass string) (map[string]interface{}, error) {
+	// Create base PVC manifest
 	pvcObject := map[string]interface{}{
 		"apiVersion": "v1",
 		"kind":       "PersistentVolumeClaim",
@@ -358,20 +358,19 @@ func RestoreVolumeSnapshot(namespace string, dryRun bool, vsName string, pvcName
 		pvcObject["spec"].(map[string]interface{})["storageClassName"] = storageClass
 	}
 
-	// Get the VolumeSnapshot to copy its storage request
-	// #nosec G204
+	// Get VolumeSnapshot details
 	cmd := exec.Command("kubectl", "get", "volumesnapshot", vsName, "-n", namespace, "-o", "json")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error getting VolumeSnapshot details: %w. Output:\n%s", err, string(output))
+		return nil, fmt.Errorf("error getting VolumeSnapshot details: %w. Output:\n%s", err, string(output))
 	}
 
 	var vs map[string]interface{}
 	if err := json.Unmarshal(output, &vs); err != nil {
-		return fmt.Errorf("error unmarshaling VolumeSnapshot: %w", err)
+		return nil, fmt.Errorf("error unmarshaling VolumeSnapshot: %w", err)
 	}
 
-	// Get the storage size from the VolumeSnapshot status
+	// Copy storage size from snapshot
 	if status, ok := vs["status"].(map[string]interface{}); ok {
 		if restoreSize, ok := status["restoreSize"].(string); ok {
 			pvcObject["spec"].(map[string]interface{})["resources"] = map[string]interface{}{
@@ -382,6 +381,17 @@ func RestoreVolumeSnapshot(namespace string, dryRun bool, vsName string, pvcName
 		}
 	}
 
+	return pvcObject, nil
+}
+
+// RestoreVolumeSnapshot creates a new PVC from a VolumeSnapshot (applies the PVC manifest)
+func RestoreVolumeSnapshot(namespace string, vsName string, pvcName string, storageClass string, wait bool, waitTimeout string) error {
+	// Create PVC manifest
+	pvcObject, err := CreatePVCManifestFromVolumeSnapshot(namespace, vsName, pvcName, storageClass)
+	if err != nil {
+		return fmt.Errorf("failed to create PVC manifest: %w", err)
+	}
+
 	stringifiedPVCObject, err := json.MarshalIndent(pvcObject, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling PVC object: %w", err)
@@ -390,19 +400,14 @@ func RestoreVolumeSnapshot(namespace string, dryRun bool, vsName string, pvcName
 	log.Printf("Creating PVC '%s' in namespace '%s' from VolumeSnapshot '%s'...\n%s",
 		pvcName, namespace, vsName, string(stringifiedPVCObject))
 
-	if dryRun {
-		log.Println("Skipping PVC creation - dry run mode is active")
-		return nil
-	}
-
 	pvcJSON, err := json.Marshal(pvcObject)
 	if err != nil {
 		return fmt.Errorf("error marshaling PVC object: %w", err)
 	}
 
-	cmd = exec.Command("kubectl", "apply", "-f", "-", "-n", namespace)
+	cmd := exec.Command("kubectl", "apply", "-f", "-", "-n", namespace)
 	cmd.Stdin = bytes.NewReader(pvcJSON)
-	output, err = cmd.CombinedOutput()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error creating PVC: %w. Output:\n%s", err, string(output))
 	}
