@@ -22,8 +22,12 @@ var vsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List volume snapshots with backup-ns labels",
 	Run: func(_ *cobra.Command, args []string) {
-		namespace := ""
-		if !allNamespaces {
+		// Handle namespace selection
+		if allNamespaces && namespace != "" {
+			log.Fatal("Cannot specify both --namespace and --all-namespaces")
+		}
+
+		if !allNamespaces && namespace == "" {
 			var err error
 			namespace, err = lib.GetCurrentNamespace()
 			if err != nil {
@@ -82,6 +86,7 @@ var vsListCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(vsListCmd)
 	vsListCmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List volume snapshots in all namespaces")
+	vsListCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace to list snapshots from (defaults to current namespace)")
 	vsListCmd.Flags().BoolVar(&filterDaily, "daily", false, "Filter daily snapshots")
 	vsListCmd.Flags().BoolVar(&filterWeekly, "weekly", false, "Filter weekly snapshots")
 	vsListCmd.Flags().BoolVar(&filterMonthly, "monthly", false, "Filter monthly snapshots")

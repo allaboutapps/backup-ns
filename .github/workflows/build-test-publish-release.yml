@@ -223,11 +223,11 @@ jobs:
               && BACKUP_NS_TMP="$(mktemp -d)" \
               && cd "${BACKUP_NS_TMP}" \
               && ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" \
-              && curl -fsSLO "https://github.com/allaboutapps/backup-ns/releases/download/v${BACKUP_NS_VERSION}/backup-ns-linux-${ARCH}.tar.gz" \
+              && curl -fsSLO "https://github.com/allaboutapps/backup-ns/releases/download/${BACKUP_NS_VERSION}/backup-ns-linux-${ARCH}.tar.gz" \
               && tar zxvf "backup-ns-linux-${ARCH}.tar.gz" \
               && chmod +x "backup-ns-linux-${ARCH}" \
               && cp "backup-ns-linux-${ARCH}" /usr/local/bin/backup-ns \
-              && curl -fsSLO "https://github.com/allaboutapps/backup-ns/releases/download/v${BACKUP_NS_VERSION}/create-adhoc-backup.sh.tar.gz" \
+              && curl -fsSLO "https://github.com/allaboutapps/backup-ns/releases/download/${BACKUP_NS_VERSION}/create-adhoc-backup.sh.tar.gz" \
               && tar zxvf "create-adhoc-backup.sh.tar.gz" \
               && chmod +x create-adhoc-backup.sh \
               && cp create-adhoc-backup.sh /usr/local/bin/ \
