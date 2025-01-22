@@ -2,6 +2,16 @@ apiVersion: v1
 entries:
   backup-ns:
   - apiVersion: v2
+    appVersion: v0.2.0
+    created: "2025-01-22T16:58:37.751702388Z"
+    description: An application-aware backup solution for a single Kubernetes namespace
+    digest: 69aae9b81c5a6e675a46ec0f8c3b3bcc50b11e25e67524bc1f352b05def3d2a4
+    name: backup-ns
+    type: application
+    urls:
+    - https://github.com/allaboutapps/backup-ns/releases/download/backup-ns-0.2.0/backup-ns-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
     appVersion: v0.1.1
     created: "2024-10-31T13:04:52.322957965Z"
     description: An application-aware backup solution for a single Kubernetes namespace
@@ -21,4 +31,4 @@ entries:
     urls:
     - https://github.com/allaboutapps/backup-ns/releases/download/backup-ns-0.1.0/backup-ns-0.1.0.tgz
     version: 0.1.0
-generated: "2024-10-31T13:04:52.322966791Z"
+generated: "2025-01-22T16:58:37.751720141Z"
