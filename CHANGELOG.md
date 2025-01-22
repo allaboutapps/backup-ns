@@ -1,13 +1,23 @@
-# Migration to v0.2.0
+# Changelog
 
-- [Migration to v0.2.0](#migration-to-v020)
-  - [Migration Steps for the `backup-ns.sh/weekly` label](#migration-steps-for-the-backup-nsshweekly-label)
+Note that versions before v1 may have breaking changes during minor version upgrades. We do our best to document these changes in the here.
 
-* `v0.2.0` introduces a change in how the value of the `backup-ns.sh/weekly` label is generated. e.g. the value of the label is now `w04` instead of `YYYY-w04` (where 04 is the current week number). 
+- [Changelog](#changelog)
+  - [v0.2.0: Go binary release](#v020-go-binary-release)
+    - [Migration Steps for the `backup-ns.sh/weekly` label](#migration-steps-for-the-backup-nsshweekly-label)
+  - [v0.1.0: Initial release](#v010-initial-release)
+
+
+## v0.2.0: Go binary release
+
+* Most of the bash scripts have been rewritten in Go (apart from mark and delete scripts): the `backup-ns` binary.
+* `backup-ns` is now both useful in the k8s pod/job/cronjob context and while running locally (especially in combination with [`kubectl envx`](https://github.com/majodev/kubectl-envx)).
+* GitHub Release automation as been added, including Helm chart and binary release.
 * `v0.2.0` places final binary from under `/app/backup-ns` (instead of `/app/app`), any references to it within your manifests must be updated.
 * All controller related subcommands are now under the `controller` subcommand. e.g. `backup-ns controller syncMetadataToVsc`.
+* `v0.2.0` introduces a change in how the value of the `backup-ns.sh/weekly` label is generated. e.g. the value of the label is now `w04` instead of `YYYY-w04` (where 04 is the current week number). 
 
-## Migration Steps for the `backup-ns.sh/weekly` label
+### Migration Steps for the `backup-ns.sh/weekly` label
 
 For the retention logic to properly work, it's necessary to manually update the value of the `backup-ns.sh/weekly` label for all existing snapshots. The following steps describe how to do this:
 
@@ -48,3 +58,7 @@ kubectl get vs --all-namespaces -l"backup-ns.sh/weekly" -Lbackup-ns.sh/retain,ba
 
 # Done (see the WEEKLY column)
 ```
+
+## v0.1.0: Initial release
+
+- Initial release of the `backup-ns` scripts - mostly in bash.

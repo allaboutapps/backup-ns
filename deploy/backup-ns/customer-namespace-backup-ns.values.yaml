@@ -10,7 +10,7 @@ serviceAccount:
   name: "a3cloud-backup"
 
 image:
-  tag: "2231cf7214"
+  tag: "v0.2.0"
 
 timeZone: "Europe/Vienna"
 schedule: "17 0 * * *"
