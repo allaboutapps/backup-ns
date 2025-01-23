@@ -379,6 +379,16 @@ kubectl envx cronjob/backup -- backup-ns mysql downloadDump
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns mysql restore
+
+# if you encounter errors during the restore
+# you may want to restore in an interactive session while temporary disabling the foreign key checks:
+kubectl envx cronjob/backup -- backup-ns mysql shell
+```
+```sql
+# inside the interactive mysql shell
+SET FOREIGN_KEY_CHECKS=0;
+source /var/lib/mysql/dump.sql;
+SET FOREIGN_KEY_CHECKS=1;
 ```
 
 #### Open an interactive mysql shell within the mysql database container
