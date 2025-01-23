@@ -13,7 +13,7 @@ import (
 // mysqlShellCmd represents the shell command
 var mysqlShellCmd = &cobra.Command{
 	Use:   "shell",
-	Short: "Opens an interactive MySQL shell to the running database container",
+	Short: "Opens an interactive mysql shell within the running database container",
 	Run: func(_ *cobra.Command, _ []string) {
 		config := lib.LoadConfig()
 
@@ -30,13 +30,6 @@ func init() {
 }
 
 func runMySQLShell(config lib.Config) {
-	// if err := lib.EnsureResourceAvailable(config.Namespace, config.MySQL.ExecResource); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// if err := lib.EnsureMySQLAvailable(config.Namespace, config.MySQL); err != nil {
-	// 	log.Fatal(err)
-	// }
-
 	// Construct mysql command with proper quoting for bash -c
 	mysqlCmd := fmt.Sprintf(`mysql --host=%s --port=%s --user=%s --password="%s" --default-character-set=%s %s`,
 		config.MySQL.Host,
@@ -58,8 +51,6 @@ func runMySQLShell(config lib.Config) {
 		"bash", "-c",
 		mysqlCmd,
 	)
-
-	// fmt.Println(cmd.String())
 
 	// Connect stdin/stdout/stderr for interactive session
 	cmd.Stdin = os.Stdin
