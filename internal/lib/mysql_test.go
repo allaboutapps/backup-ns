@@ -84,3 +84,32 @@ func TestDumpAndRestoreMySQL(t *testing.T) {
 		t.Fatal("restore Postgres failed: ", err)
 	}
 }
+
+func TestConnectToExternalMysql(t *testing.T) {
+	namespace := "mysql-test"
+
+	mysqlConfig := lib.MySQLConfig{
+		Enabled:             true,
+		ExecResource:        "deployment/mysql-access",
+		ExecContainer:       "mysql-access",
+		DumpFile:            "/var/lib/mysql/dump.sql.gz",
+		Host:                fmt.Sprintf("mysql.%s.svc.cluster.local", namespace),
+		Port:                "3306",
+		User:                "root",
+		Password:            "${MYSQL_ROOT_PASSWORD}",
+		DB:                  "${MYSQL_DATABASE}",
+		DefaultCharacterSet: "utf8",
+	}
+
+	if err := lib.EnsurePVCAvailable("mysql-test", "data"); err != nil {
+		t.Fatal("ensure pvc failed: ", err)
+	}
+
+	if err := lib.EnsureResourceAvailable(namespace, mysqlConfig.ExecResource); err != nil {
+		t.Fatal("ensure res failed: ", err)
+	}
+
+	if err := lib.EnsureMySQLAvailable(namespace, mysqlConfig); err != nil {
+		t.Fatal("ensure MySQL available failed: ", err)
+	}
+}

@@ -29,4 +29,12 @@ BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment
 
 # BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment/mysql backup-ns mysql shell
 
+# Accessing external postgres dbs via another container "postgres-access" with psql tooling:
+BAK_DB_POSTGRES_HOST=postgres.postgres-test.svc.cluster.local BAK_DB_POSTGRES=true BAK_NAMESPACE=postgres-test BAK_DB_POSTGRES_EXEC_RESOURCE=deployment/postgres-access BAK_DB_POSTGRES_EXEC_CONTAINER=postgres-access backup-ns postgres dump
+# BAK_DB_POSTGRES_HOST=postgres.postgres-test.svc.cluster.local BAK_DB_POSTGRES=true BAK_NAMESPACE=postgres-test BAK_DB_POSTGRES_EXEC_RESOURCE=deployment/postgres-access BAK_DB_POSTGRES_EXEC_CONTAINER=postgres-access backup-ns postgres shell
+
+# Accessing external mysql dbs via another container "mysql-access" with mysql tooling:
+BAK_DB_MYSQL_HOST=mysql.mysql-test.svc.cluster.local BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment/mysql-access BAK_DB_MYSQL_EXEC_CONTAINER=mysql-access backup-ns mysql dump
+# BAK_DB_MYSQL_HOST=mysql.mysql-test.svc.cluster.local BAK_DB_MYSQL=true BAK_NAMESPACE=mysql-test BAK_DB_MYSQL_EXEC_RESOURCE=deployment/mysql-access BAK_DB_MYSQL_EXEC_CONTAINER=mysql-access backup-ns mysql shell
+
 backup-ns list -A

@@ -1,0 +1,13 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: postgres
+  namespace: postgres-test
+spec:
+  selector:
+    app: postgres
+  ports:
+  - name: postgres
+    protocol: TCP
+    port: 5432
+    targetPort: 5432

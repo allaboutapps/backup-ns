@@ -91,3 +91,31 @@ func TestDumpAndRestorePostgres(t *testing.T) {
 	}
 
 }
+
+func TestConnectToExternalPostgres(t *testing.T) {
+	namespace := "postgres-test"
+
+	postgresConfig := lib.PostgresConfig{
+		Enabled:       true,
+		ExecResource:  "deployment/postgres-access",
+		ExecContainer: "postgres-access",
+		DumpFile:      "/var/lib/postgresql/data/dump.sql.gz",
+		User:          "${POSTGRES_USER}",     // read inside container
+		Password:      "${POSTGRES_PASSWORD}", // read inside container
+		DB:            "${POSTGRES_DB}",       // read inside container
+		Host:          fmt.Sprintf("postgres.%s.svc.cluster.local", namespace),
+		Port:          "5432",
+	}
+
+	if err := lib.EnsurePVCAvailable("postgres-test", "data"); err != nil {
+		t.Fatal("ensure pvc failed: ", err)
+	}
+
+	if err := lib.EnsureResourceAvailable(namespace, postgresConfig.ExecResource); err != nil {
+		t.Fatal("ensure res failed: ", err)
+	}
+
+	if err := lib.EnsurePostgresAvailable(namespace, postgresConfig); err != nil {
+		t.Fatal("ensure Postgres available failed: ", err)
+	}
+}

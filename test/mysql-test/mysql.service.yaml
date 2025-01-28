@@ -1,0 +1,13 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: mysql
+  namespace: mysql-test
+spec:
+  selector:
+    app: mysql
+  ports:
+  - name: mysql
+    protocol: TCP
+    port: 3306
+    targetPort: 3306

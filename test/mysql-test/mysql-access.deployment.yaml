@@ -1,7 +1,8 @@
+# This deployment is only here to demonstrate accessing an external MySQL database with tools installed in this deployment.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mysql
+  name: mysql-access
   namespace: mysql-test
 spec:
   replicas: 1
@@ -9,21 +10,24 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: mysql
+      app: mysql-access
   template:
     metadata:
       labels:
-        app: mysql
+        app: mysql-access
     spec:
       containers:
         - image: mysql:8.0
-          name: mysql
+          name: mysql-access
+          # important: overwrite the entrypoint to prevent the container from starting the MySQL server
+          # we are only interested in its tooling
+          command: ["/bin/sh"]
+          args: ["-c", "while true; do sleep 10;done"]
           env:
+            # you may set the same credentials as the external MySQL database
             # test only, never store production db credentials in cleartext
             - name: MYSQL_ROOT_PASSWORD
               value: "rootpass"
-            - name: MYSQL_USER
-              value: dbuser
             - name: MYSQL_PASSWORD
               value: pass
             - name: MYSQL_DATABASE
@@ -31,18 +35,9 @@ spec:
           volumeMounts:
             - name: disk-data
               mountPath: /var/lib/mysql
-              subPath: mysql
-            - name: config-mysql
-              mountPath: /etc/mysql/conf.d/a3cloud.cnf
-              subPath: a3cloud.cnf
-          ports:
-            - name: mysql
-              containerPort: 3306
+              subPath: mysql-external
 
       volumes:
         - name: disk-data
           persistentVolumeClaim:
             claimName: data
-        - name: config-mysql
-          configMap:
-            name: mysql

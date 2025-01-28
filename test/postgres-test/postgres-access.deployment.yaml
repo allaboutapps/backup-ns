@@ -1,0 +1,43 @@
+# This deployment is only here to demonstrate accessing an external postgres database with tools installed in this deployment.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-access
+  namespace: postgres-test
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres-access
+  template:
+    metadata:
+      labels:
+        app: postgres-access
+    spec:
+      containers:
+        - image: postgres:12.4-alpine
+          name: postgres-access
+          # important: overwrite the entrypoint to prevent the container from starting the postgres server
+          # we are only interested in its tooling
+          command: ["/bin/sh"]
+          args: ["-c", "while true; do sleep 10;done"]
+          env:
+            # you may set the same credentials as the external postgres database
+            # test only, never store production db credentials in cleartext
+            - name: POSTGRES_DB
+              value: "testdb"
+            - name: POSTGRES_USER
+              value: dbuser
+            - name: POSTGRES_PASSWORD
+              value: pass
+          volumeMounts:
+            - name: disk-data
+              mountPath: /var/lib/postgresql/data
+              subPath: postgresql-external
+
+      volumes:
+        - name: disk-data
+          persistentVolumeClaim:
+            claimName: data

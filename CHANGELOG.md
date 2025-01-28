@@ -13,6 +13,7 @@ Note that versions before v1 may have breaking changes during minor version upgr
 * mysqldump no longer uses `--compact`
 * adds `backup-ns postgres shell` for interactive postgres `psql` shell access
 * adds `backup-ns mysql shell` for interactive `mysql` shell access
+* minor: adds tests for dumping external DBs via an bastion deployment
 
 ## v0.2.0: Go binary release
 
