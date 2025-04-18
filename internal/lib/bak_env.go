@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/allaboutapps/backup-ns/internal/lib/flock"
 	"github.com/allaboutapps/backup-ns/internal/util"
 )
 
@@ -189,7 +190,7 @@ func LoadConfig() Config {
 			Enabled: util.GetEnvAsBool("BAK_FLOCK", false),
 
 			// The number of concurrent backup scripts allowed to run
-			Count: util.GetEnvAsInt("BAK_FLOCK_COUNT", getDefaultFlockCount()),
+			Count: util.GetEnvAsInt("BAK_FLOCK_COUNT", flock.GetDefaultFlockCount()),
 
 			// The dir in which we will create file locks to coordinate multiple running backup-ns.sh jobs
 			Dir: util.GetEnv("BAK_FLOCK_DIR", "/mnt/host-backup-locks"),

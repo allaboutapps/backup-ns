@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/allaboutapps/backup-ns/internal/lib"
+	"github.com/allaboutapps/backup-ns/internal/lib/flock"
 	"github.com/spf13/cobra"
 )
 
@@ -45,10 +46,10 @@ func runCreate(_ *cobra.Command, _ []string) {
 	}
 
 	if config.Flock.Enabled {
-		lockFile := lib.FlockShuffleLockFile(config.Flock.Dir, config.Flock.Count)
+		lockFile := flock.ShuffleLockFile(config.Flock.Dir, config.Flock.Count)
 		log.Printf("Using lock_file='%s'...", lockFile)
 
-		unlock, err := lib.FlockLock(lockFile, time.Duration(config.Flock.TimeoutSec)*time.Second, config.DryRun)
+		unlock, err := flock.New(lockFile).WithTimeout(time.Duration(config.Flock.TimeoutSec) * time.Second).Lock(config.DryRun)
 		if err != nil {
 			log.Fatal(err)
 		}
