@@ -1,6 +1,7 @@
 package lib_test
 
 import (
+	"path"
 	"sync"
 	"testing"
 	"time"
@@ -101,4 +102,17 @@ func TestFlockConcurrent(t *testing.T) {
 
 	// Wait for all goroutines to finish
 	wg.Wait()
+}
+
+func TestFlockTimeout(t *testing.T) {
+	lockFile := path.Join(t.TempDir(), "flock_test.lock")
+
+	_, err := lib.FlockLock(lockFile, 100*time.Millisecond, false)
+	require.NoError(t, err)
+
+	// Try to acquire a second lock...
+	_, err = lib.FlockLock(lockFile, 100*time.Millisecond, false)
+	require.Error(t, err)
+
+	assert.Equal(t, "Timeout while trying to acquire lock", err.Error())
 }
