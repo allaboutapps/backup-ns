@@ -7,6 +7,10 @@ Note that versions before v1 may have breaking changes during minor version upgr
     - [Migration Steps for the `backup-ns.sh/weekly` label](#migration-steps-for-the-backup-nsshweekly-label)
   - [v0.1.0: Initial release](#v010-initial-release)
 
+## v0.2.1 - 2025-04-22
+### Changed
+* Adjust free disk space check to use posix output format to ensure proper alignment
+* Refactor flock to use non-blocking syscalls to fix waiting for mutex on timeout and move flock to separate package
 
 ## v0.2.0: Go binary release
 
