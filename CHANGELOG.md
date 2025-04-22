@@ -3,9 +3,18 @@
 Note that versions before v1 may have breaking changes during minor version upgrades. We do our best to document these changes in the here.
 
 - [Changelog](#changelog)
+  - [v0.3.0:](#v030)
   - [v0.2.0: Go binary release](#v020-go-binary-release)
     - [Migration Steps for the `backup-ns.sh/weekly` label](#migration-steps-for-the-backup-nsshweekly-label)
   - [v0.1.0: Initial release](#v010-initial-release)
+
+
+## v0.3.0 2025-04-22
+### Changed
+* mysqldump no longer uses `--compact`
+### Added
+* add `backup-ns postgres shell` for interactive postgres `psql` shell access
+* add `backup-ns mysql shell` for interactive `mysql` shell access
 
 ## v0.2.1 - 2025-04-22
 ### Changed

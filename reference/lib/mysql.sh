@@ -89,7 +89,6 @@ mysql_backup() {
             --default-character-set=utf8 \
             --add-locks \
             --set-charset \
-            --compact \
             --create-options \
             --add-drop-table \
             --lock-tables \
