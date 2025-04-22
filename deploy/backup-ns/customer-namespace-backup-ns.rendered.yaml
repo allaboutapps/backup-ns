@@ -6,10 +6,10 @@ metadata:
   name: a3cloud-backup
   namespace: customer-namespace
   labels:
-    helm.sh/chart: backup-ns-0.2.1
+    helm.sh/chart: backup-ns-0.3.0
     app.kubernetes.io/name: backup-ns
     app.kubernetes.io/instance: release-name
-    app.kubernetes.io/version: "v0.2.1"
+    app.kubernetes.io/version: "v0.3.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
 ---
@@ -20,10 +20,10 @@ metadata:
   name: backup-env
   namespace: customer-namespace
   labels:
-    helm.sh/chart: backup-ns-0.2.1
+    helm.sh/chart: backup-ns-0.3.0
     app.kubernetes.io/name: backup-ns
     app.kubernetes.io/instance: release-name
-    app.kubernetes.io/version: "v0.2.1"
+    app.kubernetes.io/version: "v0.3.0"
     app.kubernetes.io/managed-by: Helm
 data:
   BAK_DB_POSTGRES: "true"
@@ -42,10 +42,10 @@ metadata:
   name: a3cloud-backup
   namespace: customer-namespace
   labels:
-    helm.sh/chart: backup-ns-0.2.1
+    helm.sh/chart: backup-ns-0.3.0
     app.kubernetes.io/name: backup-ns
     app.kubernetes.io/instance: release-name
-    app.kubernetes.io/version: "v0.2.1"
+    app.kubernetes.io/version: "v0.3.0"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -63,10 +63,10 @@ metadata:
   name: backup
   namespace: customer-namespace
   labels:
-    helm.sh/chart: backup-ns-0.2.1
+    helm.sh/chart: backup-ns-0.3.0
     app.kubernetes.io/name: backup-ns
     app.kubernetes.io/instance: release-name
-    app.kubernetes.io/version: "v0.2.1"
+    app.kubernetes.io/version: "v0.3.0"
     app.kubernetes.io/managed-by: Helm
   annotations:
     a3c-validate-prefer-explicit-pod-strategy: Recreate
@@ -83,10 +83,10 @@ spec:
       template:
         metadata:
           labels:
-            helm.sh/chart: backup-ns-0.2.1
+            helm.sh/chart: backup-ns-0.3.0
             app.kubernetes.io/name: backup-ns
             app.kubernetes.io/instance: release-name
-            app.kubernetes.io/version: "v0.2.1"
+            app.kubernetes.io/version: "v0.3.0"
             app.kubernetes.io/managed-by: Helm
             app: backup
         spec:
@@ -111,7 +111,7 @@ spec:
           - name: backup-ns
             securityContext:
               {}
-            image: "ghcr.io/allaboutapps/backup-ns:v0.2.1"
+            image: "ghcr.io/allaboutapps/backup-ns:v0.3.0"
             imagePullPolicy: IfNotPresent
             envFrom:
             - configMapRef:
