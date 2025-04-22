@@ -3,7 +3,11 @@
 Note that versions before v1 may have breaking changes during minor version upgrades. We do our best to document these changes in the here.
 
 - [Changelog](#changelog)
-  - [v0.3.0:](#v030)
+  - [v0.3.0 2025-04-22](#v030-2025-04-22)
+    - [Changed](#changed)
+    - [Added](#added)
+  - [v0.2.1 - 2025-04-22](#v021---2025-04-22)
+    - [Changed](#changed-1)
   - [v0.2.0: Go binary release](#v020-go-binary-release)
     - [Migration Steps for the `backup-ns.sh/weekly` label](#migration-steps-for-the-backup-nsshweekly-label)
   - [v0.1.0: Initial release](#v010-initial-release)
