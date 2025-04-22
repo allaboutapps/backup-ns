@@ -16,9 +16,11 @@
       - [Dump the postgres database on the live filesystem](#dump-the-postgres-database-on-the-live-filesystem)
       - [Download the postgres database dump to the local filesystem](#download-the-postgres-database-dump-to-the-local-filesystem)
       - [Restore the current dump of the postgres database on the live filesystem](#restore-the-current-dump-of-the-postgres-database-on-the-live-filesystem)
+      - [Open an interactive psql shell within the postgres database container](#open-an-interactive-psql-shell-within-the-postgres-database-container)
       - [Dump the mysql/mariadb database on the live filesystem](#dump-the-mysqlmariadb-database-on-the-live-filesystem)
       - [Download the mysql/mariadb database dump to the local filesystem](#download-the-mysqlmariadb-database-dump-to-the-local-filesystem)
       - [Restore the current dump of the mysql/mariadb database on the live filesystem](#restore-the-current-dump-of-the-mysqlmariadb-database-on-the-live-filesystem)
+      - [Open an interactive mysql shell within the mysql database container](#open-an-interactive-mysql-shell-within-the-mysql-database-container)
   - [Concepts](#concepts)
     - [Structure](#structure)
       - [Namespace-Specific](#namespace-specific)
@@ -351,6 +353,16 @@ kubectl envx cronjob/backup -- backup-ns postgres restore
 # 2025/01/08 16:54:00 Finished postgres restore in namespace='go-starter-dev'!
 ```
 
+#### Open an interactive psql shell within the postgres database container
+
+```bash
+kubectl envx cronjob/backup -- backup-ns postgres shell
+# psql (13.16)
+# Type "help" for help.
+
+# go-starter-dev=#
+```
+
 #### Dump the mysql/mariadb database on the live filesystem
 
 ```bash
@@ -367,6 +379,41 @@ kubectl envx cronjob/backup -- backup-ns mysql downloadDump
 
 ```bash
 kubectl envx cronjob/backup -- backup-ns mysql restore
+
+# if you encounter errors during the restore
+# you may want to globally disable foreign key checks in an interactive session:
+kubectl envx cronjob/backup -- backup-ns mysql shell
+```
+
+```sql
+-- inside the interactive mysql shell
+SET GLOBAL FOREIGN_KEY_CHECKS=0;
+
+-- now try to restore the dump again with the backup-ns mysql restore command
+
+-- Important: re-enable foreign key checks later on!
+SET GLOBAL FOREIGN_KEY_CHECKS=1;
+```
+
+#### Open an interactive mysql shell within the mysql database container
+
+```bash
+kubectl envx cronjob/backup -- backup-ns mysql shell
+# mysql: [Warning] Using a password on the command line interface can be insecure.
+# Reading table information for completion of table and column names
+# You can turn off this feature to get a quicker startup with -A
+
+# Welcome to the MySQL monitor.  Commands end with ; or \g.
+# Your MySQL connection id is 2370
+# Server version: 8.0.40 MySQL Community Server - GPL
+
+# Copyright (c) 2000, 2024, Oracle and/or its affiliates.
+
+# Oracle is a registered trademark of Oracle Corporation and/or its
+# affiliates. Other names may be trademarks of their respective
+# owners.
+
+# Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
 ```
 
 ## Concepts
