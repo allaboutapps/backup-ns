@@ -23,7 +23,7 @@ func EnsurePVCAvailable(namespace, pvcName string) error {
 func EnsureFreeSpace(namespace, resource, container, dir string, thresholdSpaceUsedPercent int) error {
 	log.Printf("Checking free space on %s in namespace '%s'...", dir, namespace)
 	// #nosec G204
-	cmd := exec.Command("kubectl", "exec", "-n", namespace, resource, "-c", container, "--", "df", "-h", dir)
+	cmd := exec.Command("kubectl", "exec", "-n", namespace, resource, "-c", container, "--", "df", "-hP", dir)
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("Error checking free space: %w", err)
