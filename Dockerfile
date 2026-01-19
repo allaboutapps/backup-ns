@@ -1,5 +1,5 @@
-# https://hub.docker.com/r/bitnami/kubectl/tags
-FROM bitnami/kubectl:1.29 as kubectl
+# https://hub.docker.com/r/bitnamilegacy/kubectl/tags
+FROM bitnamilegacy/kubectl:1.29 as kubectl
 
 ### -----------------------
 # --- Stage: development
@@ -117,7 +117,7 @@ RUN mkdir -p /tmp/watchexec \
     && cp watchexec-1.25.1-$(arch)-unknown-linux-musl/watchexec /usr/local/bin/watchexec \
     && rm -rf /tmp/watchexec
 
-# https://hub.docker.com/r/bitnami/kubectl/tags
+# https://hub.docker.com/r/bitnamilegacy/kubectl/tags
 COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
 
 # https://helm.sh/docs/intro/install/
@@ -305,14 +305,14 @@ ENTRYPOINT ["/app/backup-ns"]
 CMD ["create"]
 
 # distroless disabled for now, until we switch to the full go based version (without the above bash reference implementation)
-# FROM bitnami/kubectl:1.28 as kubectl
+# FROM bitnamilegacy/kubectl:1.28 as kubectl
 # # Distroless images are minimal and lack shell access.
 # # https://github.com/GoogleContainerTools/distroless/blob/master/base/README.md
 # # The :debug image provides a busybox shell to enter (base-debian10 only, not static).
 # # https://github.com/GoogleContainerTools/distroless#debug-images
 # FROM gcr.io/distroless/base-debian12:debug as app
 
-# # https://hub.docker.com/r/bitnami/kubectl/tags
+# # https://hub.docker.com/r/bitnamilegacy/kubectl/tags
 # COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
 # COPY --from=builder /app/bin/backup-ns /app/
 
