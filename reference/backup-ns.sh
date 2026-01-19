@@ -124,7 +124,7 @@ function main() {
 
     # dynamically set retain labels
     if [ "$BAK_LABEL_VS_RETAIN" == "daily_weekly_monthly" ]; then
-        local vs_retain_labels; vs_retain_labels=$(vs_get_retain_labels_daily_weekly_monthly "$BAK_NAMESPACE")
+        local vs_retain_labels; vs_retain_labels=$(vs_get_retain_labels_daily_weekly_monthly "$BAK_NAMESPACE" "$BAK_PVC_NAME")
         vs_labels="${vs_labels}
 ${vs_retain_labels}"
     elif [ "$BAK_LABEL_VS_RETAIN" == "days" ]; then

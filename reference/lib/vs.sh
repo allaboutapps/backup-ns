@@ -46,6 +46,7 @@ backup-ns.sh/pod: \"${pod}\""
 # The assumption here is that the backup procedure is run at least once a day.
 vs_get_retain_labels_daily_weekly_monthly() {
     local ns=$1
+    local pvc=$2
 
     # Note that even tough using printf for formatting dates might be a best practise (https://stackoverflow.com/questions/1401482/yyyy-mm-dd-format-date-in-shell-script)
     # we are still using date, as it is more portable (osx has no printf with date formatting support)
@@ -62,28 +63,28 @@ vs_get_retain_labels_daily_weekly_monthly() {
 backup-ns.sh/retain: "daily_weekly_monthly"
 EOF
 
-#     if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/hourly="$hourly_label" -o name)" == "" ]; then
+#     if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/pvc="$pvc",backup-ns.sh/hourly="$hourly_label" -o name)" == "" ]; then
 #         read -r -d '' labels << EOF
 # ${labels}
 # backup-ns.sh/hourly: "${hourly_label}"
 # EOF
 #     fi
 
-    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/daily="$daily_label" -o name)" == "" ]; then
+    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/pvc="$pvc",backup-ns.sh/daily="$daily_label" -o name)" == "" ]; then
         read -r -d '' labels << EOF
 ${labels}
 backup-ns.sh/daily: "${daily_label}"
 EOF
     fi
 
-    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/weekly="$weekly_label" -o name)" == "" ]; then
+    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/pvc="$pvc",backup-ns.sh/weekly="$weekly_label" -o name)" == "" ]; then
         read -r -d '' labels << EOF
 ${labels}
 backup-ns.sh/weekly: "${weekly_label}"
 EOF
     fi
 
-    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/monthly="$monthly_label" -o name)" == "" ]; then
+    if [ "$(kubectl -n "$ns" get volumesnapshot -l backup-ns.sh/pvc="$pvc",backup-ns.sh/monthly="$monthly_label" -o name)" == "" ]; then
         read -r -d '' labels << EOF
 ${labels}
 backup-ns.sh/monthly: "${monthly_label}"

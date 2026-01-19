@@ -88,13 +88,13 @@ func GenerateVSLabels(namespace, pvcName string, config LabelVSConfig, now time.
 		weeklyLabel := fmt.Sprintf("w%02d", week)
 		monthlyLabel := now.Format("2006-01")
 
-		if !volumeSnapshotWithLabelValueExists(namespace, "backup-ns.sh/daily", dailyLabel) {
+		if !volumeSnapshotWithLabelValueExists(namespace, pvcName, "backup-ns.sh/daily", dailyLabel) {
 			labels["backup-ns.sh/daily"] = dailyLabel
 		}
-		if !volumeSnapshotWithLabelValueExists(namespace, "backup-ns.sh/weekly", weeklyLabel) {
+		if !volumeSnapshotWithLabelValueExists(namespace, pvcName, "backup-ns.sh/weekly", weeklyLabel) {
 			labels["backup-ns.sh/weekly"] = weeklyLabel
 		}
-		if !volumeSnapshotWithLabelValueExists(namespace, "backup-ns.sh/monthly", monthlyLabel) {
+		if !volumeSnapshotWithLabelValueExists(namespace, pvcName, "backup-ns.sh/monthly", monthlyLabel) {
 			labels["backup-ns.sh/monthly"] = monthlyLabel
 		}
 	} else if config.Retain == "days" {
@@ -106,9 +106,10 @@ func GenerateVSLabels(namespace, pvcName string, config LabelVSConfig, now time.
 	return labels
 }
 
-func volumeSnapshotWithLabelValueExists(namespace, labelKey, labelValue string) bool {
+func volumeSnapshotWithLabelValueExists(namespace, pvcName, labelKey, labelValue string) bool {
 	// #nosec G204
-	cmd := exec.Command("kubectl", "get", "volumesnapshot", "-n", namespace, "-l", fmt.Sprintf("%s=%s", labelKey, labelValue), "-o", "name")
+	labelSelector := fmt.Sprintf("backup-ns.sh/pvc=%s,%s=%s", pvcName, labelKey, labelValue)
+	cmd := exec.Command("kubectl", "get", "volumesnapshot", "-n", namespace, "-l", labelSelector, "-o", "name")
 	output, err := cmd.Output()
 	if err != nil {
 		log.Printf("Error checking for existing VolumeSnapshot: %v", err)

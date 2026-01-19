@@ -241,3 +241,67 @@ func TestRestoreVolumeSnapshot(t *testing.T) {
 	err = lib.PruneVolumeSnapshot(namespace, vsName, false)
 	require.NoError(t, err, "Failed to clean up test snapshot")
 }
+
+func TestMultiplePVCsInNamespaceGetDailyLabels(t *testing.T) {
+	// This test verifies the fix for the scope-related bug where retention labels
+	// were incorrectly skipped if a label already existed in the namespace for a different PVC.
+	// See: https://github.com/allaboutapps/backup-ns/issues/XXX
+	namespace := "generic-test"
+	testDate := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
+
+	labelVSConfig := lib.LabelVSConfig{
+		Type:   "cronjob",
+		Pod:    "gotest",
+		Retain: "daily_weekly_monthly",
+	}
+
+	pvcNames := []string{"data", "shiny-data"}
+	createdSnapshots := []string{}
+
+	// Create snapshots for each PVC on the same day
+	for _, pvcName := range pvcNames {
+		vsName := fmt.Sprintf("test-backup-multi-pvc-%s-%s", pvcName, lib.GenerateRandomStringOrPanic(6))
+		createdSnapshots = append(createdSnapshots, vsName)
+
+		// Generate labels for the snapshot
+		labels := lib.GenerateVSLabels(namespace, pvcName, labelVSConfig, testDate)
+		vsAnnotations := lib.GenerateVSAnnotations(lib.GetBAKEnvVars())
+		vsObject := lib.GenerateVSObject(namespace, "csi-hostpath-snapclass", pvcName, vsName, labels, vsAnnotations)
+
+		// Create the snapshot
+		err := lib.CreateVolumeSnapshot(namespace, false, vsName, vsObject, false, "0s")
+		require.NoError(t, err, "Failed to create snapshot for PVC %s", pvcName)
+
+		// Verify the snapshot was created and has the correct labels
+		cmd := exec.Command("kubectl", "get", "volumesnapshot", vsName, "-n", namespace, "-o", "json")
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, "Failed to get snapshot %s", vsName)
+
+		var vs map[string]interface{}
+		err = json.Unmarshal(output, &vs)
+		require.NoError(t, err, "Failed to unmarshal snapshot %s", vsName)
+
+		metadata := vs["metadata"].(map[string]interface{})
+		actualLabels := metadata["labels"].(map[string]interface{})
+
+		// Verify the PVC label is correct
+		require.Equal(t, pvcName, actualLabels["backup-ns.sh/pvc"], "PVC label mismatch for %s", pvcName)
+
+		// Verify the daily label was applied (this is the critical fix being tested)
+		expectedDailyLabel := testDate.Format("2006-01-02")
+		actualDailyLabel, hasDailyLabel := actualLabels["backup-ns.sh/daily"]
+		require.True(t, hasDailyLabel, "Daily label not found for PVC %s", pvcName)
+		require.Equal(t, expectedDailyLabel, actualDailyLabel, "Daily label mismatch for PVC %s", pvcName)
+
+		// Verify other expected retention labels
+		require.Equal(t, "daily_weekly_monthly", actualLabels["backup-ns.sh/retain"], "Retain label mismatch for PVC %s", pvcName)
+
+		t.Logf("✓ PVC '%s' correctly has daily label '%s'", pvcName, expectedDailyLabel)
+	}
+
+	// Clean up the created snapshots
+	for _, vsName := range createdSnapshots {
+		err := lib.PruneVolumeSnapshot(namespace, vsName, false)
+		require.NoError(t, err, "Failed to clean up snapshot %s", vsName)
+	}
+}
