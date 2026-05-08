@@ -3,15 +3,24 @@
 Note that versions before v1 may have breaking changes during minor version upgrades. We do our best to document these changes in the here.
 
 - [Changelog](#changelog)
-  - [v0.3.0 2025-04-22](#v030-2025-04-22)
+  - [v0.3.1 - 2026-05-08](#v031---2026-05-08)
+    - [Fixed](#fixed)
     - [Changed](#changed)
+  - [v0.3.0 2025-04-22](#v030-2025-04-22)
+    - [Changed](#changed-1)
     - [Added](#added)
   - [v0.2.1 - 2025-04-22](#v021---2025-04-22)
-    - [Changed](#changed-1)
+    - [Changed](#changed-2)
   - [v0.2.0: Go binary release](#v020-go-binary-release)
     - [Migration Steps for the `backup-ns.sh/weekly` label](#migration-steps-for-the-backup-nsshweekly-label)
   - [v0.1.0: Initial release](#v010-initial-release)
 
+
+## v0.3.1 - 2026-05-08
+### Fixed
+* Retention labels (`backup-ns.sh/daily`, `/weekly`, `/monthly`) were skipped on a new VolumeSnapshot when another PVC in the same namespace had already received that label value on the same day/week/month. The existence check in `GenerateVSLabels` now scopes the kubectl label-selector by `backup-ns.sh/pvc=<pvcName>`, so each PVC is evaluated independently. Affected setups with multiple PVCs backed up by separate cronjobs in one namespace (the second cronjob's snapshots ended up unlabeled and therefore invisible to the retention pruner).
+### Changed
+* Dockerfile now pulls `bitnamilegacy/kubectl` instead of `bitnami/kubectl`.
 
 ## v0.3.0 2025-04-22
 ### Changed
