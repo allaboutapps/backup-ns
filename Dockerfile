@@ -1,5 +1,12 @@
-# https://hub.docker.com/r/bitnamilegacy/kubectl/tags
-FROM bitnamilegacy/kubectl:1.29 as kubectl
+# kubectl comes straight from the upstream Kubernetes release channel.
+# Bitnami moved its catalog into the frozen `bitnamilegacy` namespace (kubectl:1.29
+# last rebuilt 2025-07-20) and `bitnami/kubectl` no longer publishes version tags,
+# so that base could never receive Debian security updates again -- it was the
+# source of unpatched libxml2/gnutls28 plus two Go 1.22 binaries (kubectl and an
+# unused yq).
+# Keep within one minor of the oldest cluster control plane:
+# https://kubernetes.io/releases/version-skew-policy/#kubectl
+ARG KUBECTL_VERSION=v1.35.8
 
 ### -----------------------
 # --- Stage: development
@@ -7,7 +14,7 @@ FROM bitnamilegacy/kubectl:1.29 as kubectl
 # --- https://hub.docker.com/_/golang
 # --- https://github.com/microsoft/vscode-remote-try-go/blob/master/.devcontainer/Dockerfile
 ### -----------------------
-FROM golang:1.23-bookworm AS development
+FROM golang:1.25-bookworm AS development
 
 # Avoid warnings by switching to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -117,8 +124,17 @@ RUN mkdir -p /tmp/watchexec \
     && cp watchexec-1.25.1-$(arch)-unknown-linux-musl/watchexec /usr/local/bin/watchexec \
     && rm -rf /tmp/watchexec
 
-# https://hub.docker.com/r/bitnamilegacy/kubectl/tags
-COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
+# https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
+ARG KUBECTL_VERSION
+RUN set -x; KUBECTL_TMP="$(mktemp -d)" \
+    && cd "${KUBECTL_TMP}" \
+    && ARCH="$(dpkg --print-architecture)" \
+    && curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl" \
+    && curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl.sha256" \
+    && echo "$(cat kubectl.sha256)  kubectl" | sha256sum -c - \
+    && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
+    && cd / \
+    && rm -rf "${KUBECTL_TMP}"
 
 # https://helm.sh/docs/intro/install/
 RUN set -x; HELM_TMP="$(mktemp -d)" \
@@ -283,8 +299,29 @@ RUN make go-build
 # --- debian:buster-slim https://hub.docker.com/_/debian (if you need apt-get).
 ### -----------------------
 
-FROM kubectl as app
-COPY --from=builder /usr/bin/jq /usr/bin/jq
+FROM debian:12-slim AS app
+
+# The bash reference implementation needs awk, cat, dirname, grep, head, sed,
+# sort, tac, tr, uniq, xargs, flock and shuf -- all already present in
+# debian:12-slim -- plus jq and kubectl. `apt-get upgrade` pulls the patched
+# libxml2/gnutls28 the frozen Bitnami base could no longer receive.
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    jq \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# The bitnamilegacy/kubectl base ran as uid 1001. Recreate that user so dropping
+# it does not silently promote every backup CronJob in the fleet to root.
+# The lock dir (/mnt/host-backup-locks) is chmod 777'd by an init container,
+# so the exact uid does not matter for locking -- only that it stays non-root.
+RUN groupadd --gid 1001 nonroot \
+    && useradd --uid 1001 --gid 1001 --no-create-home --shell /usr/sbin/nologin nonroot
+
+COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
+
 WORKDIR /app
 
 # bash reference implementation, we still use retain.sh and mark-and-delete.sh
@@ -300,20 +337,20 @@ RUN bash -c "source /app/lib/utils.sh && utils_check_host_requirements true true
 # new go binary
 COPY --from=builder /app/bin/backup-ns /app/
 
+USER 1001
+
 # default entrypoint is the new go binary already
 ENTRYPOINT ["/app/backup-ns"]
 CMD ["create"]
 
 # distroless disabled for now, until we switch to the full go based version (without the above bash reference implementation)
-# FROM bitnamilegacy/kubectl:1.28 as kubectl
 # # Distroless images are minimal and lack shell access.
 # # https://github.com/GoogleContainerTools/distroless/blob/master/base/README.md
 # # The :debug image provides a busybox shell to enter (base-debian10 only, not static).
 # # https://github.com/GoogleContainerTools/distroless#debug-images
 # FROM gcr.io/distroless/base-debian12:debug as app
 
-# # https://hub.docker.com/r/bitnamilegacy/kubectl/tags
-# COPY --from=kubectl /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
+# COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 # COPY --from=builder /app/bin/backup-ns /app/
 
 # WORKDIR /app

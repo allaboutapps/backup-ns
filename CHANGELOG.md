@@ -3,18 +3,37 @@
 Note that versions before v1 may have breaking changes during minor version upgrades. We do our best to document these changes in the here.
 
 - [Changelog](#changelog)
+  - [v0.3.2 - 2026-09-01](#v032---2026-09-01)
+    - [Security](#security)
+    - [Changed](#changed)
   - [v0.3.1 - 2026-05-08](#v031---2026-05-08)
     - [Fixed](#fixed)
-    - [Changed](#changed)
-  - [v0.3.0 2025-04-22](#v030-2025-04-22)
     - [Changed](#changed-1)
+  - [v0.3.0 2025-04-22](#v030-2025-04-22)
+    - [Changed](#changed-2)
     - [Added](#added)
   - [v0.2.1 - 2025-04-22](#v021---2025-04-22)
-    - [Changed](#changed-2)
+    - [Changed](#changed-3)
   - [v0.2.0: Go binary release](#v020-go-binary-release)
     - [Migration Steps for the `backup-ns.sh/weekly` label](#migration-steps-for-the-backup-nsshweekly-label)
   - [v0.1.0: Initial release](#v010-initial-release)
 
+
+## v0.3.2 - 2026-09-01
+### Security
+* Replaced the runtime base image. `bitnamilegacy/kubectl:1.29` was last rebuilt on 2025-07-20, and Bitnami no longer publishes version tags under `bitnami/kubectl`, so that base could never receive Debian security updates again. It carried 11 critical CVEs into every deployment:
+  * `CVE-2025-68121` (CVSS 10.0) and `CVE-2026-27143` (CVSS 9.8) in the Go standard library -- once each for the bundled `kubectl` (go1.22.10), an unused `yq` (go1.22.9) and the `backup-ns` binary itself (go1.23.12).
+  * `CVE-2024-56171`, `CVE-2025-49794`, `CVE-2025-49796` in `libxml2`.
+  * `CVE-2026-33845`, `CVE-2026-42010` in `gnutls28`.
+
+### Changed
+* The deployment image is now built on `debian:12-slim`, which installs only `jq` and `ca-certificates` -- every other tool the bash reference implementation requires is already present in the base. `libxml2` is no longer present at all.
+* `kubectl` is fetched from the upstream Kubernetes release channel with a sha256 checksum verification, pinned through the `KUBECTL_VERSION` build arg (currently `v1.35.8`). Keep it within one minor of your oldest cluster control plane.
+* The Go toolchain used to build the binary moved from 1.23 to 1.25.
+* `yq` is no longer present in the image. It was inherited from the Bitnami base and never used at runtime; only the host-side `create-adhoc-backup.sh` helper needs it.
+* The image still runs as uid 1001, matching the previous Bitnami base.
+
+> **Note:** v0.3.1 appears below but was never published as a container image -- its git tag was not pushed, so the release workflow never ran. v0.3.2 is the first image release after v0.3.0.
 
 ## v0.3.1 - 2026-05-08
 ### Fixed
